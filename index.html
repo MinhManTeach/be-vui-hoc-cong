@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        try {
+          var _origFetch = typeof window !== 'undefined' ? window.fetch : null;
+          var _boundFetch = _origFetch ? _origFetch.bind(window) : null;
+          var _customFetch = _boundFetch;
+          
+          Object.defineProperty(window, 'fetch', {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+              return _customFetch || _boundFetch;
+            },
+            set: function(val) {
+              _customFetch = val;
+            }
+          });
+        } catch (e) {
+          try {
+            var proto = Object.getPrototypeOf(window);
+            if (proto) {
+              var _protoFetch = window.fetch ? window.fetch.bind(window) : null;
+              var _protoCustom = _protoFetch;
+              Object.defineProperty(proto, 'fetch', {
+                configurable: true,
+                enumerable: true,
+                get: function() {
+                  return _protoCustom || _protoFetch;
+                },
+                set: function(val) {
+                  _protoCustom = val;
+                }
+              });
+            }
+          } catch (e2) {}
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Bé Vui Học Cộng - Game Toán Mầm Non 4-6 Tuổi</title>
+    <meta name="description" content="Ứng dụng học toán vui nhộn dành cho trẻ 4-6 tuổi, học bản chất phép cộng qua đếm, gộp nhóm, tạo 10 và các trò chơi tương tác với Thỏ Bông." />
+    <meta property="og:title" content="Bé Vui Học Cộng - Game Toán Mầm Non 4-6 Tuổi" />
+    <meta property="og:description" content="Ứng dụng học toán vui nhộn dành cho trẻ 4-6 tuổi, học bản chất phép cộng qua đếm, gộp nhóm, tạo 10 và các trò chơi tương tác với Thỏ Bông." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400..900;1,400..900&family=Fredoka:wght@400..700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-amber-50 select-none overflow-x-hidden font-['Nunito',sans-serif] touch-manipulation">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
