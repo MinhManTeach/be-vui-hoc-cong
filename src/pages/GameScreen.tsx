@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Volume2, Lightbulb, Sparkles } from 'lucide-react';
 import { BunnyAccessory, Question, UserProgress, WorldId } from '../types/math';
 import { PlushFriend } from '../types/plush';
+import { QuestionSession } from '../utils/questionSession';
 import { generateQuestion } from '../utils/questionGenerator';
 import { ALL_WORLDS, recordAnswerResult, recordLevelCompletion, WorldConfig } from '../utils/storage';
 import { sound } from '../utils/sound';
@@ -52,7 +53,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [wrongAttempts, setWrongAttempts] = useState<number>(0);
   const [bunnySpeech, setBunnySpeech] = useState<string>('Con hãy quan sát và chọn đáp án nhé!');
   const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'celebrate' | 'thinking' | 'wave' | 'pointing'>('thinking');
-  const speechCancelRef = useRef<(() => void) | null>(null);
+  const sessionRef = useRef(new QuestionSession());
+  const session = sessionRef.current;
 
   // Level session counters
   const [levelQuestionIndex, setLevelQuestionIndex] = useState<number>(1);
@@ -81,8 +83,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   // Initialize question
   const initQuestion = useCallback((wId: WorldId) => {
-    sound.cancelSpeech();
-    if (speechCancelRef.current) speechCancelRef.current();
+    session.begin();
 
     const nextQ = generateQuestion(wId);
     setQuestion(nextQ);
@@ -105,10 +106,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setBunnySpeech(initialSpeech);
 
     // Auto-read question in Vietnamese after 400ms delay for preschoolers
-    speechCancelRef.current = sound.speakQuestion(nextQ.prompt, 400, {
-      questionId: `${wId}-${nextQ.id}`,
+    session.once('QUESTION_CHANGED', () => {
+      session.ownSpeech(sound.speakQuestion(nextQ.prompt, 400, {
+        questionId: `${wId}-${nextQ.id}`,
+      }));
     });
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     initQuestion(worldId);
@@ -120,18 +123,25 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setShowVictoryScreen(false);
 
     return () => {
-      sound.cancelSpeech();
-      if (speechCancelRef.current) speechCancelRef.current();
+      session.dispose();
     };
   }, [worldId, levelNumber, initQuestion]);
 
+  const speakEvent = (event: string, text: string) => {
+    session.once(event, () => session.ownSpeech(sound.speak(text, {
+      questionId: `${worldId}-${question.id}`,
+      eventType: event === 'ANSWER_CORRECT' ? 'ANSWER_CORRECT'
+        : event.startsWith('ANSWER_WRONG') ? 'ANSWER_WRONG' : 'SYSTEM',
+    })));
+  };
+
   const handleReReadQuestion = () => {
     sound.playTap();
-    sound.speak(mathExpressionToSpeech(question.prompt), {
+    session.ownSpeech(sound.speak(mathExpressionToSpeech(question.prompt), {
       eventType: 'REPLAY',
       questionId: `${worldId}-${question.id}`,
       forceReplay: true,
-    });
+    }));
   };
 
   const handleTriggerVisualHint = () => {
@@ -139,12 +149,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setIsHighlightingEmptySlots(true);
     setBunnyMood('pointing');
     setBunnySpeech('Con thử đếm những ô còn trống nhấp nháy nhé!');
-    sound.speak('Con thử đếm những ô còn trống nhấp nháy nhé!');
+    speakEvent('HINT', 'Con thử đếm những ô còn trống nhấp nháy nhé!');
   };
 
   // Handle Answer Selection
   const handleSelectChoice = (choice: number) => {
-    if (selectedAnswer !== null && selectedAnswer === choice) return;
+    if (isPaused || showVictoryScreen || !session.tryAnswer()) return;
     sound.playTap();
     setSelectedAnswer(choice);
 
@@ -156,10 +166,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           sound.playXp();
           setBunnyMood('happy');
           setBunnySpeech(`Chính xác! ${question.operandA} + ${choice} = 10! Giờ tách ${question.operandB} nhé!`);
-          sound.speak(`Chính xác! ${question.operandA} cộng ${choice} bằng mười! Giờ tách số ${question.operandB} nhé!`);
-          setTimeout(() => {
+          speakEvent('MAKE_TEN_CORRECT', `Chính xác! ${question.operandA} cộng ${choice} bằng mười! Giờ tách số ${question.operandB} nhé!`);
+          session.schedule(() => {
             setOver10Step(2);
             setSelectedAnswer(null);
+            session.releaseAnswer();
           }, 1300);
         } else {
           sound.playGentleRetry();
@@ -167,15 +178,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           setIsWobbling(true);
           const attempts = wrongAttempts + 1;
           setWrongAttempts(attempts);
-          const gentleText = sound.speakGentleRetry();
+          const gentleText = speechService.getRandomGentlePhrase();
+          speakEvent(`MAKE_TEN_WRONG_${attempts}`, gentleText);
           setBunnySpeech(gentleText);
-          setTimeout(() => {
+          session.schedule(() => {
             setIsWobbling(false);
             setSelectedAnswer(null);
+            session.releaseAnswer();
           }, 700);
 
           if (attempts >= 2) {
-            setTimeout(() => {
+            session.schedule(() => {
               handleTriggerVisualHint();
             }, 800);
           }
@@ -201,10 +214,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           : speechService.getRandomPraisePhrase();
 
       setBunnySpeech(reinforcementText);
-      sound.speak(reinforcementText, {
-        eventType: 'ANSWER_CORRECT',
-        questionId: `${worldId}-${question.id}`,
-      });
+      speakEvent('ANSWER_CORRECT', reinforcementText);
 
       // Record answer result
       const result = recordAnswerResult(progress, worldId, true);
@@ -238,12 +248,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           onPlushUnlocked?.(compResult.newlyUnlockedPlush);
         }
 
-        setTimeout(() => {
+        session.schedule(() => {
           setShowVictoryScreen(true);
         }, 1300);
       } else {
         // Advance to next question automatically after 1100ms
-        setTimeout(() => {
+        session.schedule(() => {
           setLevelQuestionIndex((prev) => prev + 1);
           initQuestion(worldId);
         }, 1200);
@@ -256,22 +266,22 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newAttempts = wrongAttempts + 1;
       setWrongAttempts(newAttempts);
 
-      const gentle = sound.speakGentleRetry({
-        questionId: `${worldId}-${question.id}`,
-      });
+      const gentle = speechService.getRandomGentlePhrase();
+      speakEvent(`ANSWER_WRONG_${newAttempts}`, gentle);
       setBunnySpeech(gentle);
 
       const result = recordAnswerResult(progress, worldId, false);
       onUpdateProgress(result.updatedProgress);
 
-      setTimeout(() => {
+      session.schedule(() => {
         setIsWobbling(false);
         setSelectedAnswer(null);
+        session.releaseAnswer();
       }, 700);
 
       // After 2 incorrect attempts, automatically activate visual hint!
       if (newAttempts >= 2) {
-        setTimeout(() => {
+        session.schedule(() => {
           handleTriggerVisualHint();
         }, 800);
       }
@@ -483,7 +493,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     sound.playTap();
                     setIsMerged(true);
                     sound.playStar();
-                    sound.speak(`Đã gộp lại! Có ${question.operandA} thêm ${question.operandB}. Có tất cả bao nhiêu?`);
+                    speakEvent('MERGE', `Đã gộp lại! Có ${question.operandA} thêm ${question.operandB}. Có tất cả bao nhiêu?`);
                   }}
                   className="mt-3 py-2.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-base shadow-md active:scale-95 transition flex items-center gap-2 border-b-4 border-amber-600 cursor-pointer"
                 >
@@ -600,6 +610,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   isSelected={isSelected}
                   isCorrect={isCorrect}
                   isWobbling={isWobbling && isSelected}
+                  disabled={selectedAnswer !== null || isPaused || showVictoryScreen}
                   onClick={() => handleSelectChoice(choice)}
                 />
               );

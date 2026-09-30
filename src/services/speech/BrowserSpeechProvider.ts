@@ -102,6 +102,7 @@ export class BrowserSpeechProvider {
       pitch?: number;
       generation?: number;
       isGenerationValid?: (gen: number) => boolean;
+      onStart?: () => void;
       onEnd?: () => void;
       onError?: (err: any) => void;
     }
@@ -132,15 +133,17 @@ export class BrowserSpeechProvider {
       utterance.pitch = options?.pitch ?? 1.05;
       utterance.volume = 1.0;
 
+      const ownsUtterance = () => this.activeUtterance === utterance && isValid();
+      const detach = () => { utterance.onstart = utterance.onend = utterance.onerror = null; };
       utterance.onstart = () => {
-        if (!isValid()) {
-          this.stop();
-          return;
-        }
+        if (!ownsUtterance()) return;
         this.isCurrentlySpeaking = true;
+        options?.onStart?.();
       };
 
       utterance.onend = () => {
+        if (!ownsUtterance()) return;
+        detach();
         this.isCurrentlySpeaking = false;
         this.activeUtterance = null;
         if (isValid()) {
@@ -149,6 +152,8 @@ export class BrowserSpeechProvider {
       };
 
       utterance.onerror = (e) => {
+        if (!ownsUtterance()) return;
+        detach();
         this.isCurrentlySpeaking = false;
         this.activeUtterance = null;
         console.warn('[TTS] Browser speech synthesis error:', e);
@@ -167,6 +172,10 @@ export class BrowserSpeechProvider {
   }
 
   public stop() {
+    const previous = this.activeUtterance;
+    this.activeUtterance = null;
+    this.isCurrentlySpeaking = false;
+    if (previous) previous.onstart = previous.onend = previous.onerror = null;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();

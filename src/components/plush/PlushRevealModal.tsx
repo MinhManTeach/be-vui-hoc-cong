@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Heart, Home, ArrowRight } from 'lucide-react';
 import { PlushFriend } from '../../types/plush';
 import { PlushFriendRenderer } from './PlushFriendRenderer';
 import { BunnyCharacter } from '../BunnyCharacter';
+import { QuestionSession } from '../../utils/questionSession';
 import { sound } from '../../utils/sound';
 
 interface PlushRevealModalProps {
@@ -30,68 +31,69 @@ export const PlushRevealModal: React.FC<PlushRevealModalProps> = ({
   backpack,
   item,
 }) => {
+  const session = useRef(new QuestionSession()).current;
   const [phase, setPhase] = useState<'countdown' | 'revealed' | 'hugged'>('countdown');
   const [count, setCount] = useState<number>(3);
 
   useEffect(() => {
     if (!isOpen || !plushFriend) return;
 
+    session.begin();
     // Reset phase
     setPhase('countdown');
     setCount(3);
 
     // Initial announcement voice
-    sound.speak('Con đã hoàn thành chặng rồi! Có một người bạn nhỏ đang chờ con đấy!', {
+    session.ownSpeech(sound.speak('Con đã hoàn thành chặng rồi! Có một người bạn nhỏ đang chờ con đấy!', {
       eventType: 'SYSTEM',
-    });
+    }));
 
     // Countdown 3, 2, 1
-    const t3 = setTimeout(() => {
+    session.schedule(() => {
       setCount(2);
       sound.playTap();
     }, 1100);
 
-    const t2 = setTimeout(() => {
+    session.schedule(() => {
       setCount(1);
       sound.playTap();
     }, 2100);
 
-    const t1 = setTimeout(() => {
+    session.schedule(() => {
       // Reveal the plush friend
       setPhase('revealed');
       sound.playLevelUp();
       sound.playStar();
 
       // Plush speaks greeting in Vietnamese
-      setTimeout(() => {
-        sound.speak(plushFriend.greeting, {
+      session.schedule(() => {
+        session.ownSpeech(sound.speak(plushFriend.greeting, {
           eventType: 'UI_CLICK',
           forceReplay: true,
-        });
+        }));
       }, 700);
     }, 3100);
 
     return () => {
-      clearTimeout(t3);
-      clearTimeout(t2);
-      clearTimeout(t1);
+      session.dispose();
     };
-  }, [isOpen, plushFriend?.id]);
+  }, [isOpen, plushFriend?.id, session]);
 
   if (!isOpen || !plushFriend) return null;
 
   const handleHugClick = () => {
+    session.begin();
     sound.playSuccess();
     sound.playStar();
     setPhase('hugged');
     onHug(plushFriend);
-    sound.speak(
+    session.ownSpeech(sound.speak(
       `Thật ấm áp! ${plushFriend.name} đã trở thành bạn thân của chúng mình rồi!`,
       {
         eventType: 'UI_CLICK',
         forceReplay: true,
       }
-    );
+    ));
   };
 
   return (

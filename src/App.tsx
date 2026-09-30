@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BunnyAccessory, MiniGameId, UserProgress, WorldId } from './types/math';
 import { ALL_WORLDS, loadProgress, recordChestOpen, recordLevelCompletion, saveProgress } from './utils/storage';
 import { sound } from './utils/sound';
@@ -33,6 +33,7 @@ import { WorldCompleteModal } from './components/WorldCompleteModal';
 import { ProfileModal } from './components/ProfileModal';
 import { PlushRevealModal } from './components/plush/PlushRevealModal';
 import { PlushFriend } from './types/plush';
+import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
 
 type AppScreen =
   | 'splash'
@@ -53,6 +54,9 @@ type AppScreen =
 
 export default function App() {
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
+  const progressRef = useRef(progress);
+  const pendingChestPlush = useRef<PlushFriend | null>(null);
+  const chestModalOpenRef = useRef(false);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('splash');
   const [selectedWorldId, setSelectedWorldId] = useState<WorldId>('world_1_counting');
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(1);
@@ -96,6 +100,7 @@ export default function App() {
   }, [progress.soundEnabled, progress.soundEffectsEnabled, progress.speechEnabled]);
 
   const handleUpdateProgress = (updated: UserProgress) => {
+    progressRef.current = updated;
     setProgress(updated);
     saveProgress(updated);
   };
@@ -139,7 +144,14 @@ export default function App() {
 
   const handleOpenChest = (chestId: string) => {
     sound.initCtx();
-    const res = recordChestOpen(progress, chestId);
+    if (chestModalOpenRef.current) return;
+    chestModalOpenRef.current = true;
+    const previous = progressRef.current;
+    const res = recordChestOpen(previous, chestId);
+    pendingChestPlush.current = ALL_PLUSH_FRIENDS.find(friend =>
+      res.updatedProgress.unlockedPlushFriends.includes(friend.id) &&
+      !previous.unlockedPlushFriends.includes(friend.id)
+    ) || null;
     handleUpdateProgress(res.updatedProgress);
     setActiveChestModal({
       isOpen: true,
@@ -395,7 +407,13 @@ export default function App() {
         rewardId={activeChestModal.rewardId}
         starsBonus={activeChestModal.starsBonus}
         xpBonus={activeChestModal.xpBonus}
-        onClose={() => setActiveChestModal((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => {
+          chestModalOpenRef.current = false;
+          setActiveChestModal((prev) => ({ ...prev, isOpen: false }));
+          const friend = pendingChestPlush.current;
+          pendingChestPlush.current = null;
+          if (friend) setActivePlushReveal({ isOpen: true, plushFriend: friend });
+        }}
         onEquipNow={handleEquipAccessoryFromChest}
       />
 

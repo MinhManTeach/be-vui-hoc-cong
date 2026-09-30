@@ -238,7 +238,7 @@ function migrateProgress(raw: Record<string, unknown>): UserProgress {
   result.playerLevel = levelInfo.level;
   result.gameProgressVersion = 2;
 
-  return result;
+  return reconcileOpenedCheckpoints(result);
 }
 
 export function loadProgress(): UserProgress {
@@ -248,7 +248,9 @@ export function loadProgress(): UserProgress {
     const rawV2 = localStorage.getItem(STORAGE_KEY);
     if (rawV2) {
       const parsed = JSON.parse(rawV2);
-      return migrateProgress(parsed);
+      const migrated = migrateProgress(parsed);
+      if (JSON.stringify(migrated) !== rawV2) saveProgress(migrated);
+      return migrated;
     }
 
     // Try migrating v1
@@ -456,47 +458,70 @@ export function recordLevelCompletion(
   };
 }
 
-// Open a treasure chest
+// Existing chest IDs are the durable receipt; repair progression without re-awarding XP/stars.
+function reconcileOpenedCheckpoints(progress: UserProgress): UserProgress {
+  let updated = progress;
+  for (const world of ALL_WORLDS) {
+    for (const level of [3, 6]) {
+      if (!updated.openedChests.includes(`chest_${world.id}_lvl_${level}`)) continue;
+      const data = updated.worldLevelsProgress[world.id];
+      if (!data.completedLevels.includes(level)) {
+        updated = {
+          ...updated,
+          worldLevelsProgress: {
+            ...updated.worldLevelsProgress,
+            [world.id]: { ...data, completedLevels: [...data.completedLevels, level].sort((a, b) => a - b) },
+          },
+        };
+      }
+      updated = claimPlushReward(updated, world.id, level).updatedProgress;
+    }
+  }
+  return {
+    ...updated,
+    unlockedWorlds: Array.from(new Set([
+      ...updated.unlockedWorlds,
+      ...ALL_WORLDS.filter(w => updated.totalStars >= w.minStarsToUnlock).map(w => w.id),
+    ])),
+  };
+}
+
+// Claim the chest and complete its checkpoint in the same saved update.
 export function recordChestOpen(
   progress: UserProgress,
   chestId: string
 ): { updatedProgress: UserProgress; reward: string | null; starsBonus: number; xpBonus: number } {
   if (progress.openedChests.includes(chestId)) {
-    return { updatedProgress: progress, reward: null, starsBonus: 0, xpBonus: 0 };
+    const repaired = reconcileOpenedCheckpoints(progress);
+    saveProgress(repaired);
+    return { updatedProgress: repaired, reward: null, starsBonus: 0, xpBonus: 0 };
   }
 
   const currentUnlocked = new Set(progress.unlockedAccessories);
-  const lockedItems = REWARDS_CATALOG.filter((r) => !currentUnlocked.has(r.id));
-  
-  // Pick a random locked item if available
-  let rewardedItem: string | null = null;
-  if (lockedItems.length > 0) {
-    const chosen = lockedItems[Math.floor(Math.random() * lockedItems.length)];
-    rewardedItem = chosen.id;
-    currentUnlocked.add(chosen.id);
-  }
+  const lockedItems = REWARDS_CATALOG.filter(r => !currentUnlocked.has(r.id));
+  const rewardedItem = lockedItems.length > 0
+    ? lockedItems[Math.floor(Math.random() * lockedItems.length)].id
+    : null;
+  if (rewardedItem) currentUnlocked.add(rewardedItem);
 
   const starsBonus = 3;
   const xpBonus = 50;
-  const newTotalStars = progress.totalStars + starsBonus;
   const newXp = (progress.xp || 0) + xpBonus;
-  const levelInfo = getPlayerLevelInfo(newXp);
-
-  const updated: UserProgress = {
+  const updated = reconcileOpenedCheckpoints({
     ...progress,
-    totalStars: newTotalStars,
+    totalStars: progress.totalStars + starsBonus,
     xp: newXp,
-    playerLevel: levelInfo.level,
+    playerLevel: getPlayerLevelInfo(newXp).level,
     openedChests: [...progress.openedChests, chestId],
     unlockedAccessories: Array.from(currentUnlocked),
-  };
+  });
 
   saveProgress(updated);
   return { updatedProgress: updated, reward: rewardedItem, starsBonus, xpBonus };
 }
 
 // Check and claim checkpoint plush friend reward (determinisic, strictly once per checkpoint)
-export function checkAndClaimPlushReward(
+function claimPlushReward(
   progress: UserProgress,
   worldId: WorldId,
   completedLevel: number
@@ -527,8 +552,13 @@ export function checkAndClaimPlushReward(
     selectedCompanionId: newCompanion,
   };
 
-  saveProgress(updated);
   return { updatedProgress: updated, unlockedPlush: friend };
+}
+
+export function checkAndClaimPlushReward(progress: UserProgress, worldId: WorldId, completedLevel: number) {
+  const result = claimPlushReward(progress, worldId, completedLevel);
+  if (result.updatedProgress !== progress) saveProgress(result.updatedProgress);
+  return result;
 }
 
 export function resetGameProgress(keepSettings: boolean = true): UserProgress {

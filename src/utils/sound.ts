@@ -61,7 +61,7 @@ class SoundService {
   }
 
   public speak(text: string, options?: SpeechRequestOptions) {
-    speechService.speak(text, options);
+    return speechService.speakScoped(text, options);
   }
 
   public speakQuestion(

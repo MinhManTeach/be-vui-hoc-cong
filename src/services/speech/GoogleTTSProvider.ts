@@ -27,228 +27,148 @@ export function detectEnvironment(): AppEnvironment {
   return 'Google AI Studio Preview';
 }
 
+export interface CloudSpeechResult {
+  started: boolean;
+  completed: boolean;
+  cancelled: boolean;
+  error?: unknown;
+}
+
+interface CloudRequest {
+  controller: AbortController | null;
+  timer: ReturnType<typeof setTimeout> | null;
+  audio: HTMLAudioElement | null;
+  started: boolean;
+  settled: boolean;
+  resolve: (result: CloudSpeechResult) => void;
+}
+
 export class GoogleTTSProvider {
-  private currentAudio: HTMLAudioElement | null = null;
-  private audioBlobCache = new Map<string, string>(); // normalized text -> blob URL
-  private isCurrentlyPlaying: boolean = false;
-  private backendAvailable: boolean = true;
-  private hasLoggedFallback: boolean = false;
-  private activeEndpointUsed: string = '';
-  private currentFetchAbort: AbortController | null = null;
+  private active: CloudRequest | null = null;
+  private audioBlobCache = new Map<string, string>();
+  private backendAvailable = true;
+  private activeEndpointUsed = detectEnvironment() === 'Netlify Production' ? '/.netlify/functions/tts' : '/api/tts';
 
-  constructor() {
-    this.activeEndpointUsed =
-      detectEnvironment() === 'Netlify Production' ? '/.netlify/functions/tts' : '/api/tts';
-  }
+  public isBackendAvailable() { return this.backendAvailable; }
+  public getActiveEndpoint() { return this.activeEndpointUsed; }
+  public recheckBackend() { this.backendAvailable = true; }
+  public getCurrentAudio() { return this.active?.audio ?? null; }
+  public isPlaying() { return !!this.active?.started; }
 
-  public isBackendAvailable(): boolean {
-    return this.backendAvailable;
-  }
-
-  public getActiveEndpoint(): string {
-    return this.activeEndpointUsed;
-  }
-
-  public recheckBackend() {
-    this.backendAvailable = true;
-    this.hasLoggedFallback = false;
-  }
-
-  public getCurrentAudio(): HTMLAudioElement | null {
-    return this.currentAudio;
-  }
-
-  /**
-   * Speak Vietnamese audio via Cloud TTS backend.
-   * Generation token checks prevent stale responses from ever playing.
-   */
-  public async speak(
-    text: string,
-    options?: {
-      generation?: number;
-      isGenerationValid?: (gen: number) => boolean;
-      onEnd?: () => void;
-      onError?: (err: any) => void;
+  public speak(text: string, options?: {
+    generation?: number;
+    isGenerationValid?: (gen: number) => boolean;
+    onStart?: () => void;
+    onEnd?: () => void;
+    onError?: (err: unknown) => void;
+  }): Promise<CloudSpeechResult> {
+    const generation = options?.generation ?? 0;
+    const generationValid = () => options?.isGenerationValid?.(generation) ?? true;
+    if (typeof window === 'undefined' || !generationValid()) {
+      return Promise.resolve({ started: false, completed: false, cancelled: true });
     }
-  ): Promise<boolean> {
-    if (typeof window === 'undefined') return false;
-
-    const reqGen = options?.generation ?? 0;
-    const isValid = () => (options?.isGenerationValid ? options.isGenerationValid(reqGen) : true);
-
-    if (!isValid()) {
-      return false;
-    }
-
-    if (!this.backendAvailable) {
-      return false;
-    }
-
     this.stop();
+    return new Promise(resolve => {
+      const request: CloudRequest = { controller: null, timer: null, audio: null, started: false, settled: false, resolve };
+      this.active = request;
+      const valid = () => this.active === request && !request.settled && generationValid();
+      const finish = (completed: boolean, error?: unknown) => {
+        if (!valid()) return;
+        const started = request.started || (request.audio?.currentTime ?? 0) > 0;
+        this.dispose(request, { started, completed, cancelled: false, error });
+        if (completed) options?.onEnd?.();
+        else if (error) options?.onError?.(error);
+      };
+      const start = () => {
+        if (!valid() || request.started) return;
+        request.started = true;
+        options?.onStart?.();
+      };
 
-    try {
-      let audioUrl = this.audioBlobCache.get(text);
-
-      if (!audioUrl) {
-        const env = detectEnvironment();
-        const endpointsToTry =
-          env === 'Netlify Production'
+      const run = async () => {
+        let url = this.audioBlobCache.get(text);
+        if (!url) {
+          const endpoints = detectEnvironment() === 'Netlify Production'
             ? ['/.netlify/functions/tts', '/api/tts']
             : ['/api/tts', '/.netlify/functions/tts'];
-
-        let fetchSuccess = false;
-
-        for (const ep of endpointsToTry) {
-          if (!isValid()) return false;
-
-          try {
-            this.currentFetchAbort = new AbortController();
-            const timeoutId = setTimeout(() => {
-              if (this.currentFetchAbort) this.currentFetchAbort.abort();
-            }, 3500); // 3.5s timeout for fast response
-
-            const res = await fetch(`${ep}?text=${encodeURIComponent(text)}`, {
-              signal: this.currentFetchAbort.signal,
-            });
-            clearTimeout(timeoutId);
-
-            if (!isValid()) {
-              return false;
-            }
-
-            if (res.ok) {
-              const blob = await res.blob();
-              audioUrl = URL.createObjectURL(blob);
-              this.audioBlobCache.set(text, audioUrl);
-              this.activeEndpointUsed = ep;
-              fetchSuccess = true;
+          for (const endpoint of endpoints) {
+            if (!valid()) return;
+            // The timer closes over this controller, never a newer request's controller.
+            const controller = new AbortController();
+            request.controller = controller;
+            const timer = setTimeout(() => controller.abort(), 3500);
+            request.timer = timer;
+            try {
+              const response = await fetch(`${endpoint}?text=${encodeURIComponent(text)}`, { signal: controller.signal });
+              if (!valid()) return;
+              if (!response.ok) continue;
+              const blob = await response.blob();
+              if (!valid()) return;
+              if (controller.signal.aborted || !blob.type.toLowerCase().startsWith('audio/')) continue;
+              url = URL.createObjectURL(blob);
+              this.audioBlobCache.set(text, url);
+              this.activeEndpointUsed = endpoint;
+              this.backendAvailable = true;
               break;
-            } else if (res.status === 404) {
-              continue;
+            } catch {
+              if (!valid()) return;
+            } finally {
+              clearTimeout(timer);
+              if (request.timer === timer) request.timer = null;
+              if (request.controller === controller) request.controller = null;
             }
-          } catch {
-            continue;
-          } finally {
-            this.currentFetchAbort = null;
           }
         }
-
-        if (!isValid()) {
-          return false;
-        }
-
-        if (!fetchSuccess || !audioUrl) {
+        if (!valid()) return;
+        if (!url) {
+          // Retry on the next request after a transient network failure.
           this.backendAvailable = false;
-          if (!this.hasLoggedFallback) {
-            console.log('[TTS] Cloud backend unavailable. Falling back to browser Vietnamese TTS.');
-            this.hasLoggedFallback = true;
-          }
-          return false;
+          finish(false, new Error('Cloud TTS unavailable'));
+          return;
         }
-      }
-
-      if (!isValid()) {
-        return false;
-      }
-
-      // Single active Audio element management with complete disposal
-      this.disposeAudio();
-
-      const audio = new Audio();
-      this.currentAudio = audio;
-      audio.preload = 'auto';
-      audio.src = audioUrl;
-
-      return new Promise<boolean>((resolve) => {
-        let isResolved = false;
-
-        const cleanupAndResolve = (success: boolean) => {
-          if (isResolved) return;
-          isResolved = true;
-          this.isCurrentlyPlaying = false;
-          this.disposeAudio();
-          resolve(success);
-        };
-
-        audio.onended = () => {
-          if (!isValid()) {
-            cleanupAndResolve(false);
-            return;
-          }
-          options?.onEnd?.();
-          cleanupAndResolve(true);
-        };
-
-        audio.onerror = (e) => {
-          console.warn('[TTS] Cloud Audio error:', e);
-          options?.onError?.(new Error('Audio playback failed'));
-          cleanupAndResolve(false);
-        };
-
-        // Guard against iOS/Safari play promise rejections
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              if (!isValid()) {
-                audio.pause();
-                cleanupAndResolve(false);
-                return;
-              }
-              this.isCurrentlyPlaying = true;
-            })
-            .catch((playErr) => {
-              console.warn('[TTS] Audio play() blocked or rejected:', playErr);
-              options?.onError?.(playErr);
-              cleanupAndResolve(false);
-            });
-        } else {
-          this.isCurrentlyPlaying = true;
-        }
-      });
-    } catch (err) {
-      this.backendAvailable = false;
-      if (!this.hasLoggedFallback) {
-        console.log('[TTS] Cloud backend unavailable. Falling back to browser Vietnamese TTS.');
-        this.hasLoggedFallback = true;
-      }
-      options?.onError?.(err);
-      return false;
-    }
+        const audio = new Audio();
+        request.audio = audio;
+        audio.preload = 'auto';
+        audio.src = url;
+        // onplay is conservative: once playback may have begun, never replay via fallback.
+        audio.onplay = start;
+        audio.onplaying = start;
+        audio.onended = () => { start(); finish(true); };
+        audio.onerror = () => finish(false, new Error('Cloud audio playback failed'));
+        try {
+          const playback = audio.play();
+          if (playback) playback.then(start, error => finish(false, error));
+          else start();
+        } catch (error) { finish(false, error); }
+      };
+      void run().catch(error => finish(false, error));
+    });
   }
 
-  private disposeAudio() {
-    if (this.currentAudio) {
-      try {
-        this.currentAudio.pause();
-        this.currentAudio.currentTime = 0;
-        this.currentAudio.src = '';
-        this.currentAudio.onended = null;
-        this.currentAudio.onerror = null;
-        this.currentAudio.onplay = null;
-        this.currentAudio.load();
-      } catch {}
-      this.currentAudio = null;
+  private dispose(request: CloudRequest, result: CloudSpeechResult) {
+    if (request.settled) return;
+    request.settled = true;
+    if (this.active === request) this.active = null;
+    if (request.timer !== null) clearTimeout(request.timer);
+    request.timer = null;
+    request.controller?.abort();
+    request.controller = null;
+    const audio = request.audio;
+    request.audio = null;
+    if (audio) {
+      audio.onended = audio.onerror = audio.onplay = audio.onplaying = null;
+      try { audio.pause(); audio.currentTime = 0; audio.src = ''; audio.load(); } catch {}
     }
-    this.isCurrentlyPlaying = false;
+    request.resolve(result);
   }
 
   public stop() {
-    if (this.currentFetchAbort) {
-      try {
-        this.currentFetchAbort.abort();
-      } catch {}
-      this.currentFetchAbort = null;
-    }
-    this.disposeAudio();
-  }
-
-  public isPlaying(): boolean {
-    return this.isCurrentlyPlaying;
+    if (this.active) this.dispose(this.active, { started: this.active.started, completed: false, cancelled: true });
   }
 
   public clearCache() {
-    this.audioBlobCache.forEach((url) => URL.revokeObjectURL(url));
+    this.stop();
+    this.audioBlobCache.forEach(url => URL.revokeObjectURL(url));
     this.audioBlobCache.clear();
   }
 }

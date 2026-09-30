@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Sparkles, Check, ArrowRight } from 'lucide-react';
+import { QuestionSession } from '../utils/questionSession';
 import { sound } from '../utils/sound';
 import { BunnyAccessory } from '../types/math';
 import { REWARDS_CATALOG } from '../utils/rewards';
@@ -22,6 +23,7 @@ export const RewardChestModal: React.FC<RewardChestModalProps> = ({
   onClose,
   onEquipNow,
 }) => {
+  const session = useRef(new QuestionSession()).current;
   const [chestState, setChestState] = useState<'closed' | 'countdown_3' | 'countdown_2' | 'countdown_1' | 'opened'>('closed');
 
   const rewardItem: BunnyAccessory | undefined = rewardId
@@ -30,32 +32,35 @@ export const RewardChestModal: React.FC<RewardChestModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      session.begin();
       setChestState('closed');
     }
-  }, [isOpen]);
+    return () => session.dispose();
+  }, [isOpen, session]);
 
   if (!isOpen) return null;
 
   const handleOpenChest = () => {
+    if (!session.tryAnswer()) return;
     sound.playTap();
     setChestState('countdown_3');
-    sound.speak('Ba...');
+    session.ownSpeech(sound.speak('Ba...'));
 
-    setTimeout(() => {
+    session.schedule(() => {
       setChestState('countdown_2');
-      sound.speak('Hai...');
+      session.ownSpeech(sound.speak('Hai...'));
     }, 600);
 
-    setTimeout(() => {
+    session.schedule(() => {
       setChestState('countdown_1');
-      sound.speak('Một...');
+      session.ownSpeech(sound.speak('Một...'));
     }, 1200);
 
-    setTimeout(() => {
+    session.schedule(() => {
       setChestState('opened');
       sound.playChestOpen();
       sound.playFanfare();
-      sound.speak('Oa! Rương báu đã mở! Con nhận được phần thưởng mới!');
+      session.ownSpeech(sound.speak('Oa! Rương báu đã mở! Con nhận được phần thưởng mới!'));
 
       try {
         confetti({
