@@ -220,3 +220,19 @@ test('HTML responses are rejected; voiceschanged never replays speech; no Englis
   assert.equal(utterances.length, 0);
   assert.equal(mathExpressionToSpeech('8 + 5 = ?'), 'tám cộng năm bằng bao nhiêu?');
 });
+
+for (const status of [503, 429, 504, 502]) {
+  test(`Cloud HTTP ${status} falls back exactly once to Browser Vietnamese Speech`, async () => {
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Speech temporarily unavailable' }), {
+      status, headers: { 'Content-Type': 'application/json' },
+    });
+    const pending = manager.speakVietnamese('Con hãy đếm nhé!');
+    await flush();
+    assert.equal(audios.length, 0);
+    assert.equal(utterances.length, 1);
+    assert.equal(utterances[0].lang, 'vi-VN');
+    utterances[0].onend();
+    assert.equal(await pending, true);
+    assert.equal(manager.isSpeaking(), false);
+  });
+}

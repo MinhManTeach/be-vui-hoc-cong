@@ -46,6 +46,8 @@ interface CloudRequest {
 export class GoogleTTSProvider {
   private active: CloudRequest | null = null;
   private audioBlobCache = new Map<string, string>();
+  private audioBlobSizes = new Map<string, number>();
+  private cachedBytes = 0;
   private backendAvailable = true;
   private activeEndpointUsed = detectEnvironment() === 'Netlify Production' ? '/.netlify/functions/tts' : '/api/tts';
 
@@ -76,6 +78,7 @@ export class GoogleTTSProvider {
         if (!valid()) return;
         const started = request.started || (request.audio?.currentTime ?? 0) > 0;
         this.dispose(request, { started, completed, cancelled: false, error });
+        if (error) this.evictCachedAudio(text);
         if (completed) options?.onEnd?.();
         else if (error) options?.onError?.(error);
       };
@@ -104,9 +107,16 @@ export class GoogleTTSProvider {
               if (!response.ok) continue;
               const blob = await response.blob();
               if (!valid()) return;
-              if (controller.signal.aborted || !blob.type.toLowerCase().startsWith('audio/')) continue;
+              if (controller.signal.aborted || !blob.type.toLowerCase().startsWith('audio/') || !blob.size || blob.size > 500_000) continue;
+              // Bound cached object URLs and revoke every evicted URL.
+              while (this.audioBlobCache.size && (this.audioBlobCache.size >= 128 || this.cachedBytes + blob.size > 4_000_000)) {
+                const oldest = this.audioBlobCache.keys().next().value!;
+                this.evictCachedAudio(oldest);
+              }
               url = URL.createObjectURL(blob);
               this.audioBlobCache.set(text, url);
+              this.audioBlobSizes.set(text, blob.size);
+              this.cachedBytes += blob.size;
               this.activeEndpointUsed = endpoint;
               this.backendAvailable = true;
               break;
@@ -166,10 +176,20 @@ export class GoogleTTSProvider {
     if (this.active) this.dispose(this.active, { started: this.active.started, completed: false, cancelled: true });
   }
 
+  private evictCachedAudio(text: string) {
+    const url = this.audioBlobCache.get(text);
+    if (url) URL.revokeObjectURL(url);
+    this.cachedBytes -= this.audioBlobSizes.get(text) ?? 0;
+    this.audioBlobCache.delete(text);
+    this.audioBlobSizes.delete(text);
+  }
+
   public clearCache() {
     this.stop();
     this.audioBlobCache.forEach(url => URL.revokeObjectURL(url));
     this.audioBlobCache.clear();
+    this.audioBlobSizes.clear();
+    this.cachedBytes = 0;
   }
 }
 
