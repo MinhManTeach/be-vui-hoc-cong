@@ -533,6 +533,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <p className="font-extrabold text-sm text-slate-800">
                     {question.operandA} cần thêm mấy để đủ 10?
                   </p>
+                  <p className="mt-1 text-sm font-semibold text-indigo-900">
+                    Con chọn số cần thêm để đủ 10, chưa chọn kết quả {question.operandA} + {question.operandB} nhé!
+                  </p>
                   <div className="my-2">
                     <InteractiveToyTenFrame
                       initialCountA={question.operandA}
@@ -546,7 +549,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               {over10Step === 2 && (
                 <div className="text-center animate-fade-in">
                   <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full font-black text-xs mb-2">
-                    BƯỚC 2: TÁCH PHẦN CÒN LẠI
+                    BƯỚC 2: CHỌN KẾT QUẢ
                   </span>
                   <p className="font-extrabold text-sm text-slate-800">
                     Lấy {question.needToMake10} từ {question.operandB}, còn lại {question.remainder}.
@@ -554,8 +557,33 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <div className="mt-2 text-xl font-black text-indigo-900">
                     10 + {question.remainder} = ?
                   </div>
+                  <p className="mt-1 text-sm font-semibold text-indigo-900">
+                    Bây giờ con chọn kết quả của {question.operandA} + {question.operandB} ở các ô bên dưới nhé!
+                  </p>
                 </div>
               )}
+              <details key={question.id} className="mt-2 w-full rounded-2xl bg-indigo-50 p-3 text-left text-sm text-indigo-950">
+                <summary className="cursor-pointer font-extrabold rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                  Ba mẹ hướng dẫn: Vì sao chọn số nhỏ trước?
+                </summary>
+                <div className="mt-2 space-y-2 leading-relaxed">
+                  <p>
+                    Bài {question.operandA} + {question.operandB} được làm qua hai bước: tạo thành 10 trước, rồi cộng phần còn lại.
+                    Các ô 1, 2, 3, 4 ở bước đầu là số cần thêm, không phải kết quả phép cộng.
+                  </p>
+                  <ol className="list-decimal space-y-2 pl-5">
+                    <li>
+                      <strong>Bù cho đủ 10:</strong> Ba mẹ hỏi “{question.operandA} cần thêm mấy để đủ 10?” và cùng bé đếm ô trống.
+                      Bé chọn {question.needToMake10}, vì {question.operandA} + {question.needToMake10} = 10.
+                    </li>
+                    <li>
+                      <strong>Cộng phần còn lại:</strong> Lấy {question.needToMake10} từ {question.operandB}, còn {question.remainder}.
+                      Ta có 10 + {question.remainder} = {question.answer}. Lúc này bé mới chọn {question.answer} làm kết quả của {question.operandA} + {question.operandB}.
+                    </li>
+                  </ol>
+                  <p>Chọn đúng ở bước 1, trò chơi sẽ tự chuyển sang bước 2. Ba mẹ hướng dẫn bé từng bước, không cần yêu cầu bé trả lời tổng ngay từ đầu.</p>
+                </div>
+              </details>
             </div>
           )}
         </div>
