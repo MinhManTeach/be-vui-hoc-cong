@@ -1,3 +1,5 @@
+import type { RetentionProgress } from '../domain/retention/types';
+
 export type WorldId = 
   | 'world_1_counting' 
   | 'world_2_merge' 
@@ -53,6 +55,7 @@ export interface WorldLevelData {
 
 export interface UserProgress {
   gameProgressVersion?: number;
+  retention?: RetentionProgress;
   childNickname?: string;
   childAvatar?: string;
   currentLevel: number;

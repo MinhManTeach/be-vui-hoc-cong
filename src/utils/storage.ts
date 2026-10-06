@@ -2,9 +2,14 @@ import { UserProgress, WorldId, WorldLevelData } from '../types/math';
 import { REWARDS_CATALOG } from './rewards';
 import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
 import { PlushFriend } from '../types/plush';
+import { createRetention } from '../domain/retention/types';
+import { natural, object, strings, validateRetention } from '../domain/retention/validation';
 
 export const STORAGE_KEY = 'be_vui_hoc_cong_progress_v2';
 export const LEGACY_STORAGE_KEY = 'be_vui_hoc_cong_progress_v1';
+export const BACKUP_STORAGE_KEY = STORAGE_KEY + '_backup';
+export const CORRUPT_STORAGE_KEY = STORAGE_KEY + '_corrupt';
+export const SAVE_VERSION = 2;
 
 export const LEVEL_TITLES: { level: number; title: string; minXp: number; maxXp: number }[] = [
   { level: 1, title: 'Nhà Thám Hiểm Nhí', minXp: 0, maxXp: 100 },
@@ -45,6 +50,7 @@ export function getPlayerLevelInfo(xp: number) {
 
 export const INITIAL_PROGRESS: UserProgress = {
   gameProgressVersion: 2,
+  retention: createRetention(),
   childNickname: 'Bé Yêu',
   childAvatar: '🐰',
   currentLevel: 1,
@@ -182,102 +188,131 @@ export const ALL_WORLDS: WorldConfig[] = [
   },
 ];
 
-// Migration helper to safely convert v1 data to v2
-function migrateProgress(raw: Record<string, unknown>): UserProgress {
-  const result: UserProgress = {
-    ...INITIAL_PROGRESS,
-    ...raw,
-    equippedAccessories: {
-      ...INITIAL_PROGRESS.equippedAccessories,
-      ...(raw.equippedAccessories as object),
-    },
-    unlockedAccessories: Array.isArray(raw.unlockedAccessories)
-      ? Array.from(new Set([...INITIAL_PROGRESS.unlockedAccessories, ...(raw.unlockedAccessories as string[])]))
-      : INITIAL_PROGRESS.unlockedAccessories,
-    unlockedPlushFriends: Array.isArray(raw.unlockedPlushFriends)
-      ? (raw.unlockedPlushFriends as string[])
-      : [],
-    selectedCompanionId: typeof raw.selectedCompanionId === 'string' ? (raw.selectedCompanionId as string) : null,
-    claimedCheckpointRewards: Array.isArray(raw.claimedCheckpointRewards)
-      ? (raw.claimedCheckpointRewards as string[])
-      : [],
-    stats: {
-      ...INITIAL_PROGRESS.stats,
-      ...((raw.stats as object) || {}),
-      categoryAccuracy: {
-        ...INITIAL_PROGRESS.stats.categoryAccuracy,
-        ...((raw.stats as { categoryAccuracy?: Record<WorldId, { answered: number; correct: number }> })?.categoryAccuracy || {}),
-      },
-    },
-  };
+// Keep the v2 key/root version; retention is independently versioned.
+export function isFutureSave(raw: unknown): boolean {
+  const data = object(raw);
+  const retention = object(data.retention);
+  return (typeof data.gameProgressVersion === 'number' && data.gameProgressVersion > SAVE_VERSION) ||
+    (typeof retention.version === 'number' && retention.version > 1) ||
+    (typeof object(retention.dailyAdventure).definitionVersion === 'number' && (object(retention.dailyAdventure).definitionVersion as number) > 1);
+}
 
-  // Populate worldLevelsProgress if missing
-  if (!result.worldLevelsProgress || typeof result.worldLevelsProgress !== 'object') {
-    result.worldLevelsProgress = {
-      world_1_counting: { completedLevels: [], levelStars: {} },
-      world_2_merge: { completedLevels: [], levelStars: {} },
-      world_3_add_10: { completedLevels: [], levelStars: {} },
-      world_4_make_10: { completedLevels: [], levelStars: {} },
-      world_5_split: { completedLevels: [], levelStars: {} },
-      world_6_over_10: { completedLevels: [], levelStars: {} },
+export function migrateProgress(value: unknown): UserProgress {
+  const raw = object(value);
+  const result = structuredClone(INITIAL_PROGRESS);
+  for (const field of ['currentLevel', 'totalStars', 'xp'] as const) result[field] = natural(raw[field], result[field]);
+  if (raw.xp === undefined || raw.xp === null) result.xp = result.totalStars * 15;
+  for (const field of ['childNickname', 'childAvatar'] as const) {
+    if (typeof raw[field] === 'string') result[field] = raw[field];
+  }
+  for (const field of ['soundEnabled', 'speechEnabled', 'soundEffectsEnabled', 'musicEnabled', 'allUnlockedOverride'] as const) {
+    if (typeof raw[field] === 'boolean') result[field] = raw[field];
+  }
+  if (raw.soundEffectsEnabled === undefined && typeof raw.soundEnabled === 'boolean') result.soundEffectsEnabled = raw.soundEnabled;
+  result.unlockedWorlds = strings(raw.unlockedWorlds).filter((id): id is WorldId => ALL_WORLDS.some(w => w.id === id));
+  if (!result.unlockedWorlds.includes('world_1_counting')) result.unlockedWorlds.unshift('world_1_counting');
+  for (const field of ['openedChests', 'unlockedPlushFriends', 'claimedCheckpointRewards'] as const) result[field] = strings(raw[field]);
+  result.unlockedAccessories = [...new Set([...INITIAL_PROGRESS.unlockedAccessories, ...strings(raw.unlockedAccessories)])];
+  result.selectedCompanionId = typeof raw.selectedCompanionId === 'string' ? raw.selectedCompanionId : null;
+  const accessories = object(raw.equippedAccessories);
+  for (const slot of ['hat', 'glasses', 'shirt', 'backpack', 'item', 'badge'] as const) {
+    if (typeof accessories[slot] === 'string') result.equippedAccessories[slot] = accessories[slot];
+  }
+  const levels = object(raw.worldLevelsProgress);
+  for (const world of ALL_WORLDS) {
+    const data = object(levels[world.id]);
+    const stars = object(data.levelStars);
+    result.worldLevelsProgress[world.id] = {
+      completedLevels: Array.isArray(data.completedLevels) ? [...new Set(data.completedLevels.filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= world.totalLevels))] : [],
+      levelStars: Object.fromEntries(Object.entries(stars).filter(([key, n]) => /^[1-8]$/.test(key) && Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 3).map(([key, n]) => [key, n as number])),
+      ...(typeof data.bossCompleted === 'boolean' ? { bossCompleted: data.bossCompleted } : {}),
     };
-  } else {
-    // Ensure all 6 worlds exist
-    const worlds: WorldId[] = ['world_1_counting', 'world_2_merge', 'world_3_add_10', 'world_4_make_10', 'world_5_split', 'world_6_over_10'];
-    worlds.forEach((w) => {
-      if (!result.worldLevelsProgress[w]) {
-        result.worldLevelsProgress[w] = { completedLevels: [], levelStars: {} };
-      }
-    });
   }
-
-  if (result.xp === undefined || result.xp === null) {
-    result.xp = result.totalStars * 15;
+  const stats = object(raw.stats);
+  for (const field of ['todayTimeMinutes', 'totalAnswered', 'totalCorrect', 'streak', 'bestStreak'] as const) result.stats[field] = natural(stats[field], result.stats[field]);
+  const accuracy = object(stats.categoryAccuracy);
+  for (const world of ALL_WORLDS) {
+    const entry = object(accuracy[world.id]);
+    result.stats.categoryAccuracy[world.id] = { answered: natural(entry.answered), correct: natural(entry.correct) };
   }
-  const levelInfo = getPlayerLevelInfo(result.xp);
-  result.playerLevel = levelInfo.level;
-  result.gameProgressVersion = 2;
-
+  result.playerLevel = getPlayerLevelInfo(result.xp).level;
+  result.retention = validateRetention(raw.retention);
   return reconcileOpenedCheckpoints(result);
 }
 
+function parseSave(text: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(text);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid save root');
+  return parsed as Record<string, unknown>;
+}
+function preserveCorrupt(text: string): boolean {
+  try {
+    if (localStorage.getItem(CORRUPT_STORAGE_KEY) === null) localStorage.setItem(CORRUPT_STORAGE_KEY, text);
+    return true;
+  } catch { return false; }
+}
+
 export function loadProgress(): UserProgress {
-  if (typeof window === 'undefined') return INITIAL_PROGRESS;
+  if (typeof window === 'undefined') return structuredClone(INITIAL_PROGRESS);
   try {
-    // Check v2 first
-    const rawV2 = localStorage.getItem(STORAGE_KEY);
-    if (rawV2) {
-      const parsed = JSON.parse(rawV2);
-      const migrated = migrateProgress(parsed);
-      if (JSON.stringify(migrated) !== rawV2) saveProgress(migrated);
-      return migrated;
+    const text = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (text === null) return structuredClone(INITIAL_PROGRESS);
+    let parsed: Record<string, unknown>;
+    try { parsed = parseSave(text); }
+    catch {
+      preserveCorrupt(text);
+      const backup = localStorage.getItem(BACKUP_STORAGE_KEY);
+      if (backup === null) return structuredClone(INITIAL_PROGRESS);
+      parsed = parseSave(backup);
+      return migrateProgress(parsed);
     }
-
-    // Try migrating v1
-    const rawV1 = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (rawV1) {
-      const parsedV1 = JSON.parse(rawV1);
-      const migrated = migrateProgress(parsedV1);
-      saveProgress(migrated);
-      return migrated;
-    }
-
-    return INITIAL_PROGRESS;
-  } catch (err) {
-    console.error('Error loading progress', err);
-    return INITIAL_PROGRESS;
-  }
+    const migrated = migrateProgress(parsed);
+    if (!isFutureSave(parsed) && JSON.stringify(migrated) !== localStorage.getItem(STORAGE_KEY)) saveProgress(migrated);
+    return migrated;
+  } catch { return structuredClone(INITIAL_PROGRESS); }
 }
 
-export function saveProgress(progress: UserProgress): void {
-  if (typeof window === 'undefined') return;
+/** True only after a durable write; future schemas are never downgraded. */
+export function saveProgress(progress: UserProgress): boolean {
+  if (typeof window === 'undefined' || isFutureSave(progress)) return false;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  } catch (e) {
-    console.error('Failed to save progress', e);
-  }
+    const next = JSON.stringify(progress);
+    for (const key of [STORAGE_KEY, LEGACY_STORAGE_KEY, BACKUP_STORAGE_KEY]) {
+      const previous = localStorage.getItem(key);
+      if (previous === null) continue;
+      let parsed: Record<string, unknown>;
+      try { parsed = parseSave(previous); }
+      catch { if (key !== BACKUP_STORAGE_KEY && !preserveCorrupt(previous)) return false; continue; }
+      if (isFutureSave(parsed)) return false;
+    }
+    const previous = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (previous !== null && previous !== next) {
+      let valid = false;
+      try { parseSave(previous); valid = true; } catch { if (!preserveCorrupt(previous)) return false; }
+      if (valid) localStorage.setItem(BACKUP_STORAGE_KEY, previous);
+    }
+    localStorage.setItem(STORAGE_KEY, next);
+    return true;
+  } catch { return false; }
 }
 
+/** Publish the returned snapshot/animation only after this succeeds. */
+export function commitRetentionUpdate(progress: UserProgress, update: (current: UserProgress) => UserProgress): UserProgress {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved !== null) {
+      let parsed: Record<string, unknown> | null = null;
+      try { parsed = parseSave(saved); } catch { /* recovery write still preserves corrupt data */ }
+      if (parsed && (isFutureSave(parsed) || JSON.stringify(migrateProgress(parsed)) !== JSON.stringify(migrateProgress(progress)))) {
+        throw new Error('Retention save conflict; reload the latest progress before retrying');
+      }
+    }
+  }
+  const next = update(progress);
+  if (next === progress) return progress;
+  if (!saveProgress(next)) throw new Error('Retention save failed; do not publish this update');
+  return next;
+}
 // Check newly unlocked rewards based on star count
 export function checkAndUpdateUnlockedRewards(progress: UserProgress): { newRewards: string[]; updatedProgress: UserProgress } {
   const currentUnlocked = new Set(progress.unlockedAccessories);
@@ -573,7 +608,9 @@ export function resetGameProgress(keepSettings: boolean = true): UserProgress {
     try {
       const existingRaw = localStorage.getItem(STORAGE_KEY);
       if (existingRaw) {
-        const existing = JSON.parse(existingRaw);
+        const parsed = JSON.parse(existingRaw);
+        if (isFutureSave(parsed)) return loadProgress();
+        const existing = migrateProgress(parsed);
         if (existing) {
           preservedSettings = {
             soundEnabled: existing.soundEnabled ?? true,
@@ -589,16 +626,17 @@ export function resetGameProgress(keepSettings: boolean = true): UserProgress {
   }
 
   const cleanProgress: UserProgress = {
-    ...DEFAULT_GAME_PROGRESS,
+    ...structuredClone(DEFAULT_GAME_PROGRESS),
     ...preservedSettings,
   };
 
   if (typeof window !== 'undefined') {
     try {
       // Clean only game keys - NEVER call localStorage.clear()
-      localStorage.removeItem(STORAGE_KEY);
+      if (!saveProgress(cleanProgress)) return loadProgress();
       localStorage.removeItem(LEGACY_STORAGE_KEY);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanProgress));
+      localStorage.removeItem(BACKUP_STORAGE_KEY);
+      localStorage.removeItem(CORRUPT_STORAGE_KEY);
     } catch (e) {
       console.error('Failed to reset storage:', e);
     }
