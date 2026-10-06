@@ -18,8 +18,9 @@ import type { TaskId } from "../domain/retention/types";
 import { DailyController } from "../domain/retention/dailyController";
 import { STICKERS } from "../data/stickers";
 import { ALL_PLUSH_FRIENDS } from "../data/plushFriends";
-import { BunnyCharacter } from "../components/BunnyCharacter";
-import { PlushFriendRenderer } from "../components/plush/PlushFriendRenderer";
+import { CompanionRenderer } from "../components/plush/CompanionRenderer";
+import { resolveCompanion, type CompanionReaction } from "../utils/companion";
+
 import { ItemVisual } from "../components/ItemVisual";
 import { VisualCounters } from "../components/VisualCounters";
 import { GardenScenerySVG } from "../utils/worldAssets";
@@ -32,17 +33,7 @@ const tasks = [
   { id: "play", name: "Chơi một chút", Icon: TrainFront },
   { id: "help", name: "Giúp bạn nhỏ", Icon: Heart },
 ] as const;
-function Friend({ id, happy = false }: { id: string; happy?: boolean }) {
-  return id === "bunny" ? (
-    <BunnyCharacter size="md" mood={happy ? "happy" : "wave"} />
-  ) : (
-    <PlushFriendRenderer
-      plushId={id}
-      size={140}
-      animationState={happy ? "happy" : "wave"}
-    />
-  );
-}
+function Friend({id,happy=false,reaction}:{id:string;happy?:boolean;reaction?:CompanionReaction}){return <CompanionRenderer companionId={id} size={140} showBadge={false} canSpeakOnClick={false} reaction={reaction??(happy?'CELEBRATE':'IDLE')}/>;}
 export function StickerArt({ id }: { id: string }) {
   if (id === "sticker_rainbow")
     return (
@@ -224,7 +215,7 @@ export default function DailyAdventureScreen({
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view, q?.id]);
-  const friendId = ready ? controller.adventure.companionId : "bunny";
+  const friendId = ready ? resolveCompanion(controller.progress,controller.adventure.companionId) : "bunny";
   const friendName =
     ALL_PLUSH_FRIENDS.find((f) => f.id === friendId)?.name ?? "Thỏ Bông";
   const story =
@@ -442,7 +433,7 @@ export default function DailyAdventureScreen({
             </div>
             {!voiceAvailability.canRead && <p role="status" className="daily-help">{voiceAvailability.message}</p>}
             <div className="daily-task-scene">
-              <Friend id={friendId} happy={busy} />
+              <Friend key={q?.id} id={friendId} reaction={busy ? (controller.task !== task ? "CELEBRATE" : "HAPPY") : feedback ? "ENCOURAGE" : hint ? "THINKING" : "IDLE"} />
               <div>
                 <p className="daily-eyebrow">
                   {tasks.find((t) => t.id === task)?.name}
@@ -477,6 +468,7 @@ export default function DailyAdventureScreen({
               className="daily-hint"
               disabled={busy}
               onClick={() => {
+                setFeedback("");
                 setHint(true);
                 sound.speak(
                   q.hintExplanation ?? "Con chạm từng hình để đếm nhé!",

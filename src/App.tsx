@@ -34,6 +34,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { PlushRevealModal } from './components/plush/PlushRevealModal';
 import { PlushFriend } from './types/plush';
 import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
+import { resolveCompanion } from './utils/companion';
 
 const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
 
@@ -232,7 +233,7 @@ export default function App() {
           shirt={progress.equippedAccessories.shirt}
           backpack={progress.equippedAccessories.backpack}
           item={progress.equippedAccessories.item}
-          companionId={progress.selectedCompanionId}
+          companionId={resolveCompanion(progress)}
           soundEnabled={progress.soundEffectsEnabled ?? progress.soundEnabled}
           onToggleSound={handleToggleSound}
           childAvatar={progress.childAvatar}

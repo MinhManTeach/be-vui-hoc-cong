@@ -3,6 +3,7 @@ import { Play, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { BunnyCharacter, BunnyMood } from '../components/BunnyCharacter';
 import { CompanionRenderer } from '../components/plush/CompanionRenderer';
 import { sound } from '../utils/sound';
+import { homeCompanionCopy } from '../utils/companion';
 
 interface SplashScreenProps {
   onStartAdventure: () => void;
@@ -32,18 +33,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   childNickname = 'Bé Yêu',
 }) => {
   const [bunnyMood, setBunnyMood] = useState<BunnyMood>('wave');
-  const [speechText, setSpeechText] = useState<string>('Chào con! Cùng Thỏ Bông đi phiêu lưu nhé!');
+  const copy = homeCompanionCopy(companionId);
+  const [reactionSpeech, setReactionSpeech] = useState<{ greeting: string; text: string } | null>(null);
+  const speechText = reactionSpeech?.greeting === copy.greeting ? reactionSpeech.text : copy.greeting;
 
   useEffect(() => {
     // Initial welcome voice after short delay
     const timer = setTimeout(() => {
-      sound.speak('Chào con! Cùng Thỏ Bông đi phiêu lưu nhé!', {
+      sound.speak(copy.greeting, {
         eventType: 'SYSTEM',
       });
     }, 600);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [copy.greeting]);
 
   const handleStart = () => {
     sound.initCtx();
@@ -66,7 +69,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       'Con đã sẵn sàng thu thập thêm nhiều ngôi sao chưa nào?',
     ];
     const cheer = cheers[Math.floor(Math.random() * cheers.length)];
-    setSpeechText(cheer);
+    setReactionSpeech({ greeting: copy.greeting, text: cheer });
     sound.speak(cheer, {
       eventType: 'UI_CLICK',
       forceReplay: true,
@@ -206,10 +209,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </div>
 
           {/* Active Companion if equipped */}
-          {companionId && (
+          {copy.companionId && (
             <div className="scale-90 sm:scale-100 -translate-x-2 animate-bounce-subtle pointer-events-auto">
               <CompanionRenderer
-                companionId={companionId}
+                companionId={copy.companionId}
                 size={80}
                 showBadge={true}
                 canSpeakOnClick={true}
@@ -219,7 +222,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </div>
 
         <p className="text-xs sm:text-sm font-extrabold text-amber-950/80 max-w-md">
-          Chạm vào Thỏ Bông hoặc bấm nút bên dưới để bắt đầu hành trình toán học nhé! 🥕
+          {copy.instruction}
         </p>
       </main>
 

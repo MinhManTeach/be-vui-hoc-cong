@@ -8,7 +8,8 @@ import { ALL_WORLDS, recordAnswerResult, recordLevelCompletion, WorldConfig } fr
 import { sound } from '../utils/sound';
 import { speechService } from '../utils/speechService';
 import { useSpeechAvailability } from '../services/speech/useSpeechAvailability';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { CompanionRenderer } from '../components/plush/CompanionRenderer';
+import { resolveCompanion, reactionFor } from '../utils/companion';
 import { VisualCounters } from '../components/VisualCounters';
 import { InteractiveToyTenFrame } from '../components/InteractiveToyTenFrame';
 import { activateTenFrameHint, isTenFrameHintActive, tenFrameHintPlan } from '../utils/tenFrameHint';
@@ -55,7 +56,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [wrongAttempts, setWrongAttempts] = useState<number>(0);
   const [bunnySpeech, setBunnySpeech] = useState<string>('Con hãy quan sát và chọn đáp án nhé!');
-  const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'celebrate' | 'thinking' | 'wave' | 'pointing'>('thinking');
+  const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'celebrate' | 'thinking' | 'wave' | 'pointing' | 'encourage'>('thinking');
   const sessionRef = useRef(new QuestionSession());
   const session = sessionRef.current;
 
@@ -177,7 +178,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           }, 1300);
         } else {
           sound.playGentleRetry();
-          setBunnyMood('thinking');
+          setBunnyMood('encourage');
           setIsWobbling(true);
           const attempts = wrongAttempts + 1;
           setWrongAttempts(attempts);
@@ -207,7 +208,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       sound.playSuccess();
       sound.playStar();
       sound.playXp();
-      setBunnyMood('celebrate');
+      setBunnyMood('happy');
       setShowXpPop(true);
       setIsFillingTenFrame(true);
 
@@ -263,7 +264,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       }
     } else {
       sound.playGentleRetry();
-      setBunnyMood('thinking');
+      setBunnyMood('encourage');
       setIsWobbling(true);
 
       const newAttempts = wrongAttempts + 1;
@@ -611,26 +612,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <div className="w-full max-w-xl flex items-center justify-center gap-3 my-2">
           {/* Prominent Sized Thỏ Bông Mascot */}
           <div className="shrink-0 transform transition-transform hover:scale-105">
-            <BunnyCharacter
-              mood={bunnyMood}
-              size="lg"
-              showSpeechBubble={false}
-              hat={progress.equippedAccessories.hat}
-              glasses={progress.equippedAccessories.glasses}
-              shirt={progress.equippedAccessories.shirt}
-              backpack={progress.equippedAccessories.backpack}
-              item={progress.equippedAccessories.item}
-              badge={progress.equippedAccessories.badge}
-            />
+            <CompanionRenderer companionId={resolveCompanion(progress)} size={130} showBadge={false} canSpeakOnClick={false} reaction={showVictoryScreen ? reactionFor('complete') : bunnyMood === 'happy' ? reactionFor('correct') : bunnyMood === 'encourage' ? reactionFor('wrong') : bunnyMood === 'pointing' ? reactionFor('hint') : reactionFor('question')} accessories={progress.equippedAccessories} />
           </div>
 
           {/* Speech Bubble right beside Thỏ Bông */}
-          <div className="flex-1 bg-white/95 backdrop-blur-md border-3 border-amber-400 rounded-3xl p-3.5 shadow-xl relative animate-bounce-subtle">
+          <div className="flex-1 bg-white/95 backdrop-blur-md border-3 border-amber-400 rounded-3xl p-3.5 shadow-xl relative companion-speech">
             {/* Bubble Tail pointing to Bunny */}
             <div className="absolute top-1/2 -left-2.5 -translate-y-1/2 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-white" />
             <div className="absolute top-1/2 -left-3.5 -translate-y-1/2 w-0 h-0 border-y-9 border-y-transparent border-r-9 border-r-amber-400 -z-10" />
 
-            <p className="text-xs sm:text-sm font-black text-slate-800 leading-tight">
+            <p className="text-base sm:text-lg font-black text-slate-800 leading-tight">
               {bunnySpeech}
             </p>
           </div>
@@ -714,7 +705,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             sound.cancelSpeech();
             onGoToMap();
           }}
-          companionId={progress.selectedCompanionId}
+          companionId={resolveCompanion(progress)}
           hat={progress.equippedAccessories.hat}
           glasses={progress.equippedAccessories.glasses}
           shirt={progress.equippedAccessories.shirt}
