@@ -1,3 +1,4 @@
+import { reconcileRoom } from '../room/room';
 import type { UserProgress, WorldId } from '../../types/math';
 import { ALL_PLUSH_FRIENDS } from '../../data/plushFriends';
 import { STICKERS } from '../../data/stickers';
@@ -108,7 +109,7 @@ export function applyDailyEvent(progress: UserProgress, event: DailyEvent, clock
   r.dailyAdventure!.taskProgress[task] = Math.min(TASK_TARGETS[task], current.taskProgress[task] + increment);
   if (session?.status === 'completed') addReceipt(r, `${current.adventureId}:MiniGameSessionCompleted:${session.sessionId}`);
   finishTasks(r);
-  return { ...progress, retention: r };
+  return reconcileRoom({ ...progress, retention: r });
 }
 export function claimDailyReward(progress: UserProgress): UserProgress {
   const existing = progress.retention; const a = existing?.dailyAdventure;

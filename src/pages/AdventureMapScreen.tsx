@@ -29,6 +29,7 @@ interface AdventureMapScreenProps {
   onOpenProfile: () => void;
   onToggleSound: () => void;
   onOpenDaily: () => void;
+  onOpenRoom: () => void;
 }
 
 export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
@@ -42,6 +43,7 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
   onOpenProfile,
   onToggleSound,
   onOpenDaily,
+  onOpenRoom,
 }) => {
   const levelInfo = getPlayerLevelInfo(progress.xp || 0);
   const daily = progress.retention?.dailyAdventure;
@@ -194,6 +196,7 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
             </div>
             <button onClick={onOpenDaily}>{dailyLabel}</button>
           </section>
+          <button onClick={onOpenRoom} className="min-h-12 px-6 py-3 mb-5 bg-amber-100 border-3 border-amber-700 rounded-3xl text-lg font-black text-amber-950 shadow-md">🏡 Phòng Của Bé</button>
           {/* MAP TITLE BANNER */}
           <div className="text-center mb-6 z-10">
             <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/90 border-2 border-amber-400 text-amber-950 font-black text-xs sm:text-sm shadow-md mb-1 animate-bounce-subtle">

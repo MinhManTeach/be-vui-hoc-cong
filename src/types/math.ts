@@ -1,4 +1,5 @@
 import type { RetentionProgress } from '../domain/retention/types';
+import type { RoomProgress } from '../domain/room/room';
 
 export type WorldId = 
   | 'world_1_counting' 
@@ -54,6 +55,7 @@ export interface WorldLevelData {
 }
 
 export interface UserProgress {
+  room?: RoomProgress;
   gameProgressVersion?: number;
   retention?: RetentionProgress;
   childNickname?: string;

@@ -3,6 +3,7 @@ import { ArrowLeft, Sparkles, Check, Lock, Star } from 'lucide-react';
 import { AccessoryType, BunnyAccessory, UserProgress } from '../types/math';
 import { REWARDS_CATALOG } from '../utils/rewards';
 import { BunnyCharacter } from '../components/BunnyCharacter';
+import { WearableIcon, toggleWearable } from '../components/wardrobe/WearableArt';
 import { sound } from '../utils/sound';
 
 interface WardrobeScreenProps {
@@ -44,10 +45,7 @@ export const WardrobeScreen: React.FC<WardrobeScreenProps> = ({
 
     const updated = {
       ...progress,
-      equippedAccessories: {
-        ...progress.equippedAccessories,
-        [item.type]: progress.equippedAccessories[item.type] === item.id ? undefined : item.id,
-      },
+      equippedAccessories: toggleWearable(progress.equippedAccessories, item),
     };
     onUpdateProgress(updated);
   };
@@ -154,8 +152,8 @@ export const WardrobeScreen: React.FC<WardrobeScreenProps> = ({
                   </div>
                 )}
 
-                {/* Emoji Icon */}
-                <div className="text-4xl sm:text-5xl my-1">{item.emoji}</div>
+                {/* Shared wearable artwork */}
+                <WearableIcon id={item.id} className="w-20 h-20 sm:w-24 sm:h-24 my-1" />
 
                 <div className="text-center mt-1">
                   <h4 className="font-black text-xs sm:text-sm text-slate-800 leading-tight">

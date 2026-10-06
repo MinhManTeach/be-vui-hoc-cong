@@ -35,13 +35,18 @@ import { PlushRevealModal } from './components/plush/PlushRevealModal';
 import { PlushFriend } from './types/plush';
 import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
 import { resolveCompanion } from './utils/companion';
+import { pendingDecor, acknowledgeDecor } from './domain/room/room';
+import { commitRetentionUpdate } from './utils/storage';
 
 const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
+const MyRoomScreen = lazy(() => import('./pages/MyRoomScreen'));
+const DecorReveal = lazy(() => import('./components/room/DecorReveal'));
 
 type AppScreen =
   | 'splash'
   | 'map'
   | 'daily'
+  | 'room'
   | 'world_trail'
   | 'level_play'
   | 'boss_gate_10'
@@ -62,6 +67,8 @@ export default function App() {
   const pendingChestPlush = useRef<PlushFriend | null>(null);
   const chestModalOpenRef = useRef(false);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('splash');
+  const [roomSelection, setRoomSelection] = useState<string | undefined>();
+  const [roomSaveError, setRoomSaveError] = useState('');
   const [selectedWorldId, setSelectedWorldId] = useState<WorldId>('world_1_counting');
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(1);
 
@@ -104,9 +111,25 @@ export default function App() {
   }, [progress.soundEnabled, progress.soundEffectsEnabled, progress.speechEnabled]);
 
   const handleUpdateProgress = (updated: UserProgress) => {
+    // Publish reward/room state only after the existing save confirms durability.
+    if (!saveProgress(updated)) {
+      setRoomSaveError('Chưa lưu được tiến độ. Hãy tải lại trước khi tiếp tục nhé!');
+      return;
+    }
     progressRef.current = updated;
     setProgress(updated);
-    saveProgress(updated);
+    setRoomSaveError('');
+  };
+
+  const newDecor = pendingDecor(progress);
+  const closeDecorReveal = (place: boolean) => {
+    if (!newDecor) return;
+    try {
+      const next = commitRetentionUpdate(progressRef.current, p => acknowledgeDecor(p, newDecor.id));
+      handleUpdateProgress(next);
+      setRoomSaveError('');
+      if (place) { setRoomSelection(newDecor.id); setCurrentScreen('room'); }
+    } catch { setRoomSaveError('Chưa lưu được. Hãy thử lại nhé!'); }
   };
 
   const handleToggleSound = () => {
@@ -258,8 +281,22 @@ export default function App() {
             sound.cancelSpeech();
             setCurrentScreen('daily');
           }}
+          onOpenRoom={() => { sound.cancelSpeech(); setRoomSelection(undefined); setCurrentScreen('room'); }}
         />
       )}
+
+      {currentScreen === 'room' && (
+        <Suspense fallback={<p className="p-8 text-center">Đang mở căn phòng…</p>}>
+          <MyRoomScreen progress={progress} initialDecorId={roomSelection} onSaved={handleUpdateProgress} onExit={() => setCurrentScreen('map')} />
+        </Suspense>
+      )}
+      {currentScreen === 'map' && newDecor && !activePlushReveal.isOpen && !activeChestModal.isOpen && !worldCompleteModalData.isOpen && (
+        <Suspense fallback={null}>
+          <DecorReveal decor={newDecor} onPlace={() => closeDecorReveal(true)} onLater={() => closeDecorReveal(false)} />
+        </Suspense>
+      )}
+
+      {roomSaveError && <p role="alert" className="fixed bottom-4 inset-x-4 z-[90] bg-white p-4 text-center">{roomSaveError}</p>}
 
       {currentScreen === 'daily' && (
         <Suspense fallback={<p className="p-8 text-center">Đang chuẩn bị chuyến đi…</p>}>

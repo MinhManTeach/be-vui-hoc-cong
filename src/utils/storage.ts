@@ -4,6 +4,7 @@ import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
 import { PlushFriend } from '../types/plush';
 import { createRetention } from '../domain/retention/types';
 import { natural, object, strings, validateRetention } from '../domain/retention/validation';
+import { createRoom, reconcileRoom } from '../domain/room/room';
 
 export const STORAGE_KEY = 'be_vui_hoc_cong_progress_v2';
 export const LEGACY_STORAGE_KEY = 'be_vui_hoc_cong_progress_v1';
@@ -49,6 +50,7 @@ export function getPlayerLevelInfo(xp: number) {
 }
 
 export const INITIAL_PROGRESS: UserProgress = {
+  room: createRoom(),
   gameProgressVersion: 2,
   retention: createRetention(),
   childNickname: 'Bé Yêu',
@@ -192,7 +194,9 @@ export const ALL_WORLDS: WorldConfig[] = [
 export function isFutureSave(raw: unknown): boolean {
   const data = object(raw);
   const retention = object(data.retention);
+  const room = object(data.room);
   return (typeof data.gameProgressVersion === 'number' && data.gameProgressVersion > SAVE_VERSION) ||
+    (typeof room.version === 'number' && room.version > 1) ||
     (typeof retention.version === 'number' && retention.version > 1) ||
     (typeof object(retention.dailyAdventure).definitionVersion === 'number' && (object(retention.dailyAdventure).definitionVersion as number) > 1);
 }
@@ -237,7 +241,7 @@ export function migrateProgress(value: unknown): UserProgress {
   }
   result.playerLevel = getPlayerLevelInfo(result.xp).level;
   result.retention = validateRetention(raw.retention);
-  return reconcileOpenedCheckpoints(result);
+  return reconcileRoom(reconcileOpenedCheckpoints(result), raw.room);
 }
 
 function parseSave(text: string): Record<string, unknown> {
@@ -477,12 +481,13 @@ export function recordLevelCompletion(
   const { newRewards, updatedProgress: afterRewardsProgress } = checkAndUpdateUnlockedRewards(updatedProgress);
 
   // Check and claim checkpoint plush reward deterministically
-  const { updatedProgress: finalProgress, unlockedPlush } = checkAndClaimPlushReward(
+  const { updatedProgress: plushProgress, unlockedPlush } = checkAndClaimPlushReward(
     afterRewardsProgress,
     worldId,
     levelNumber
   );
 
+  const finalProgress = reconcileRoom(plushProgress);
   saveProgress(finalProgress);
 
   return {
@@ -527,7 +532,7 @@ export function recordChestOpen(
   chestId: string
 ): { updatedProgress: UserProgress; reward: string | null; starsBonus: number; xpBonus: number } {
   if (progress.openedChests.includes(chestId)) {
-    const repaired = reconcileOpenedCheckpoints(progress);
+    const repaired = reconcileRoom(reconcileOpenedCheckpoints(progress));
     saveProgress(repaired);
     return { updatedProgress: repaired, reward: null, starsBonus: 0, xpBonus: 0 };
   }
@@ -542,14 +547,14 @@ export function recordChestOpen(
   const starsBonus = 3;
   const xpBonus = 50;
   const newXp = (progress.xp || 0) + xpBonus;
-  const updated = reconcileOpenedCheckpoints({
+  const updated = reconcileRoom(reconcileOpenedCheckpoints({
     ...progress,
     totalStars: progress.totalStars + starsBonus,
     xp: newXp,
     playerLevel: getPlayerLevelInfo(newXp).level,
     openedChests: [...progress.openedChests, chestId],
     unlockedAccessories: Array.from(currentUnlocked),
-  });
+  }));
 
   saveProgress(updated);
   return { updatedProgress: updated, reward: rewardedItem, starsBonus, xpBonus };
