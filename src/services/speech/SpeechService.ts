@@ -178,10 +178,9 @@ export class SpeechService {
   private lastSpokenText: string = '';
   private lastSpeechKey: string = '';
   private lastSpeechTimestamp: number = 0;
-  private lastReplayTimestamp: number = 0;
 
   private pendingTimer: any = null;
-  private activeRequest: { generation: number; key: string; resolve: (value: boolean) => void } | null = null;
+  private activeRequest: { generation: number; key: string; voiceAbort: AbortController; resolve: (value: boolean) => void } | null = null;
 
   // Debug counters
   private requestCount: number = 0;
@@ -253,7 +252,7 @@ export class SpeechService {
     const previous = this.activeRequest;
     this.activeRequest = null;
     this.lastSpeechKey = '';
-    if (previous) { this.cancelledCount++; previous.resolve(false); }
+    if (previous) { previous.voiceAbort.abort(); this.cancelledCount++; previous.resolve(false); }
     googleTTSProvider.stop();
     browserSpeechProvider.stop();
     this.isCurrentlySpeaking = false;
@@ -268,13 +267,10 @@ export class SpeechService {
     if (!text) return Promise.resolve(false);
     const key = `${options?.eventType || 'SYSTEM'}:${options?.questionId || ''}:${text}`;
     const now = Date.now();
-    if (options?.forceReplay) {
-      if (this.lastReplayTimestamp && now - this.lastReplayTimestamp < 350) {
-        this.dedupedCount++;
-        return Promise.resolve(false);
-      }
-      this.lastReplayTimestamp = now;
-    } else if (this.activeRequest?.key === key || (key === this.lastSpeechKey && now - this.lastSpeechTimestamp < 1200)) {
+    const isReplay = options?.eventType === 'REPLAY';
+    // Replays replace the pending intent even when their text/key is identical.
+    // Ordinary render/question intents retain the existing duplicate protection.
+    if (!isReplay && !options?.forceReplay && (this.activeRequest?.key === key || (key === this.lastSpeechKey && now - this.lastSpeechTimestamp < 1200))) {
       this.dedupedCount++;
       return Promise.resolve(false);
     }
@@ -287,7 +283,7 @@ export class SpeechService {
     this.currentSpeechId = key;
     this.requestCount++;
     return new Promise(resolve => {
-      const request = { generation, key, resolve };
+      const request = { generation, key, resolve, voiceAbort: new AbortController() };
       this.activeRequest = request;
       const valid = () => this.enabled && this.activeRequest === request && generation === this.speechGeneration;
       const finish = (played: boolean, error?: unknown) => {
@@ -307,18 +303,20 @@ export class SpeechService {
       };
       const run = async () => {
         if (!valid()) return;
-        const cloud = await googleTTSProvider.speak(text, {
+        const cloud = googleTTSProvider.isConfigured() ? await googleTTSProvider.speak(text, {
           generation,
           isGenerationValid: valid,
           onStart: () => started('Google Cloud / Neural TTS'),
-        });
+        }) : { completed: false, started: false, cancelled: false, error: undefined };
         if (!valid()) return;
         if (cloud.completed || cloud.started || cloud.cancelled) {
           // Never restart the whole phrase after any cloud playback has begun.
           finish(cloud.completed, cloud.error);
           return;
         }
-        const accepted = browserSpeechProvider.isAvailable() && browserSpeechProvider.speak(text, {
+        const available = await browserSpeechProvider.waitForVietnameseVoice(request.voiceAbort.signal);
+        if (!valid()) return;
+        const accepted = available && browserSpeechProvider.speak(text, {
           generation,
           isGenerationValid: valid,
           onStart: () => started('Browser Vietnamese Voice'),
@@ -332,7 +330,7 @@ export class SpeechService {
         }
       };
       const execute = () => { if (valid()) void run().catch(error => finish(false, error)); };
-      const delay = options?.delayMs ?? options?.debounceMs ?? 0;
+      const delay = isReplay ? 300 : options?.delayMs ?? options?.debounceMs ?? 0;
       if (delay > 0) {
         this.pendingTimer = setTimeout(() => {
           if (!valid()) return;
@@ -367,6 +365,10 @@ export class SpeechService {
         forceReplay: true,
       });
     }
+  }
+
+  public replayQuestion(prompt: string, questionId: string): () => void {
+    return this.speakScoped(prompt, { eventType: 'REPLAY', questionId, forceReplay: true });
   }
 
   /**

@@ -5,6 +5,8 @@
  * Manages a single active HTMLAudioElement with full disposal.
  */
 
+import { cloudTtsConfigured } from './cloudConfig';
+
 export type AppEnvironment = 'Google AI Studio Preview' | 'Local Development' | 'Netlify Production';
 
 export function detectEnvironment(): AppEnvironment {
@@ -44,6 +46,8 @@ interface CloudRequest {
 }
 
 export class GoogleTTSProvider {
+  constructor(private configured = cloudTtsConfigured()) {}
+  public isConfigured() { return this.configured; }
   private active: CloudRequest | null = null;
   private audioBlobCache = new Map<string, string>();
   private audioBlobSizes = new Map<string, number>();
@@ -51,7 +55,7 @@ export class GoogleTTSProvider {
   private backendAvailable = true;
   private activeEndpointUsed = detectEnvironment() === 'Netlify Production' ? '/.netlify/functions/tts' : '/api/tts';
 
-  public isBackendAvailable() { return this.backendAvailable; }
+  public isBackendAvailable() { return this.configured && this.backendAvailable; }
   public getActiveEndpoint() { return this.activeEndpointUsed; }
   public recheckBackend() { this.backendAvailable = true; }
   public getCurrentAudio() { return this.active?.audio ?? null; }
@@ -66,7 +70,7 @@ export class GoogleTTSProvider {
   }): Promise<CloudSpeechResult> {
     const generation = options?.generation ?? 0;
     const generationValid = () => options?.isGenerationValid?.(generation) ?? true;
-    if (typeof window === 'undefined' || !generationValid()) {
+    if (!this.configured || typeof window === 'undefined' || !generationValid()) {
       return Promise.resolve({ started: false, completed: false, cancelled: true });
     }
     this.stop();

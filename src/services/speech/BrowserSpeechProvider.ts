@@ -19,6 +19,12 @@ export class BrowserSpeechProvider {
   private isLoaded: boolean = false;
   private activeUtterance: SpeechSynthesisUtterance | null = null;
   private isCurrentlySpeaking: boolean = false;
+  private boundSynth: SpeechSynthesis | null = null;
+  private listeners = new Set<() => void>();
+  private waiting = 0;
+  public subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  public getVoiceState = (): 'ready' | 'loading' | 'unavailable' => this.selectedVoice ? 'ready' : this.waiting > 0 ? 'loading' : 'unavailable';
+  private notify() { for (const listener of this.listeners) listener(); }
 
   constructor() {
     this.initVoices();
@@ -35,40 +41,54 @@ export class BrowserSpeechProvider {
         this.allVoices = voices;
 
         // Strict Vietnamese filter
-        this.vietnameseVoices = voices.filter((voice) => {
-          const lang = (voice.lang || '').toLowerCase();
-          const name = (voice.name || '').toLowerCase();
-          return (
-            lang === 'vi-vn' ||
-            lang === 'vi_vn' ||
-            lang.startsWith('vi') ||
-            name.includes('vietnamese') ||
-            name.includes('vietnam') ||
-            name.includes('tiếng việt')
-          );
-        });
+        this.vietnameseVoices = voices.filter(voice => (voice.lang || '').toLowerCase().startsWith('vi'));
+        this.vietnameseVoices.sort((a, b) => Number(b.lang.toLowerCase() === 'vi-vn') - Number(a.lang.toLowerCase() === 'vi-vn'));
 
         if (this.vietnameseVoices.length > 0) {
           this.selectedVoice = this.vietnameseVoices[0];
-          console.log('[TTS] Browser Vietnamese Voice ready:', {
-            name: this.selectedVoice.name,
-            lang: this.selectedVoice.lang,
-          });
         } else {
           this.selectedVoice = null;
         }
 
         this.isLoaded = true;
+        this.notify();
       } catch (err) {
-        console.warn('[TTS] Failed to query browser voices:', err);
+        this.selectedVoice = null;
+        this.notify();
       }
     };
 
     loadVoices();
     // Do NOT call speak() in onvoiceschanged! Only update voice list.
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (this.boundSynth !== window.speechSynthesis) {
+      this.boundSynth = window.speechSynthesis;
+      if (typeof this.boundSynth.addEventListener === 'function') this.boundSynth.addEventListener('voiceschanged', loadVoices);
+      else {
+        const previous = this.boundSynth.onvoiceschanged;
+        this.boundSynth.onvoiceschanged = event => { previous?.call(window.speechSynthesis, event); loadVoices(); };
+      }
     }
+  }
+
+  /** One finite event wait per request; cancellation removes timer and listener. */
+  public waitForVietnameseVoice(signal: AbortSignal, timeoutMs = 1500): Promise<boolean> {
+    this.initVoices();
+    if (signal.aborted || typeof window === 'undefined' || !('speechSynthesis' in window)) return Promise.resolve(false);
+    if (this.selectedVoice) return Promise.resolve(true);
+    return new Promise(resolve => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout>;
+      const finish = (available: boolean) => {
+        if (settled) return;
+        settled = true; clearTimeout(timer); unsubscribe(); signal.removeEventListener('abort', abort);
+        this.waiting--; this.notify(); resolve(available);
+      };
+      const abort = () => finish(false);
+      const unsubscribe = this.subscribe(() => { if (this.selectedVoice) finish(true); });
+      timer = setTimeout(() => finish(false), timeoutMs);
+      signal.addEventListener('abort', abort, { once: true });
+      this.waiting++; this.notify();
+    });
   }
 
   public isAvailable(): boolean {
@@ -118,7 +138,6 @@ export class BrowserSpeechProvider {
 
     // Safety check: MUST have genuine Vietnamese voice
     if (!this.selectedVoice) {
-      console.warn('[TTS] Cannot speak via browser: No Vietnamese voice found.');
       return false;
     }
 

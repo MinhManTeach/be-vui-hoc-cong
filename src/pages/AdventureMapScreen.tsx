@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import './dailyAdventure.css';
+import { deviceClock } from '../domain/retention/clock';
 import { Lock, Star, Sparkles, Volume2, VolumeX, Play, Compass, Award } from 'lucide-react';
 import { UserProgress, WorldId } from '../types/math';
 import { ALL_WORLDS, getPlayerLevelInfo } from '../utils/storage';
@@ -26,6 +28,7 @@ interface AdventureMapScreenProps {
   onOpenParents: () => void;
   onOpenProfile: () => void;
   onToggleSound: () => void;
+  onOpenDaily: () => void;
 }
 
 export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
@@ -38,23 +41,23 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
   onOpenParents,
   onOpenProfile,
   onToggleSound,
+  onOpenDaily,
 }) => {
   const levelInfo = getPlayerLevelInfo(progress.xp || 0);
+  const daily = progress.retention?.dailyAdventure;
+  const currentDaily = daily && (daily.status !== 'claimed' || daily.createdDay >= deviceClock.day());
+  const dailyLabel = currentDaily && daily.status === 'claimed'
+    ? 'Hôm nay con đã hoàn thành!'
+    : currentDaily && (daily.taskProgress.learn > 0 || progress.retention?.miniGameSession)
+      ? 'Tiếp tục chuyến đi'
+      : 'Đi phiêu lưu!';
   const activeNodeRef = useRef<HTMLDivElement | null>(null);
   const [hoppingWorldId, setHoppingWorldId] = useState<WorldId | null>(null);
 
-  // Auto-scroll to current active world level on mount
+  // The daily invitation is the first destination on map entry.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (activeNodeRef.current) {
-        activeNodeRef.current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-      }
-    }, 450);
-
-    return () => clearTimeout(timer);
+    // Keep the daily invitation visible on entry; world selection still scrolls normally.
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
   // Determine current active world
@@ -183,6 +186,14 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
 
         {/* Continuous Adventure Canvas Container */}
         <div className="w-full max-w-4xl relative flex flex-col items-center px-4 py-6">
+          <section className="daily-entry" aria-label="Chuyến Phiêu Lưu Hôm Nay">
+            <Sparkles size={48} color="#b58021" />
+            <div>
+              <h2>Chuyến Phiêu Lưu Hôm Nay</h2>
+              <p>Học một chút · Chơi một chút · Giúp bạn nhỏ</p>
+            </div>
+            <button onClick={onOpenDaily}>{dailyLabel}</button>
+          </section>
           {/* MAP TITLE BANNER */}
           <div className="text-center mb-6 z-10">
             <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/90 border-2 border-amber-400 text-amber-950 font-black text-xs sm:text-sm shadow-md mb-1 animate-bounce-subtle">

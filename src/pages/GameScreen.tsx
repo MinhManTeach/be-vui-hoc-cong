@@ -6,10 +6,12 @@ import { QuestionSession } from '../utils/questionSession';
 import { generateQuestion } from '../utils/questionGenerator';
 import { ALL_WORLDS, recordAnswerResult, recordLevelCompletion, WorldConfig } from '../utils/storage';
 import { sound } from '../utils/sound';
-import { mathExpressionToSpeech, speechService } from '../utils/speechService';
+import { speechService } from '../utils/speechService';
+import { useSpeechAvailability } from '../services/speech/useSpeechAvailability';
 import { BunnyCharacter } from '../components/BunnyCharacter';
 import { VisualCounters } from '../components/VisualCounters';
 import { InteractiveToyTenFrame } from '../components/InteractiveToyTenFrame';
+import { activateTenFrameHint, isTenFrameHintActive, tenFrameHintPlan } from '../utils/tenFrameHint';
 import { ToyAnswerBlock } from '../components/ToyAnswerBlock';
 import { VictoryScreen } from '../components/VictoryScreen';
 import { HintModal } from '../components/HintModal';
@@ -46,6 +48,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   onToggleSound,
   onPlushUnlocked,
 }) => {
+  const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
   const worldConfig: WorldConfig = ALL_WORLDS.find((w) => w.id === worldId) || ALL_WORLDS[0];
 
   const [question, setQuestion] = useState<Question>(() => generateQuestion(worldId));
@@ -67,13 +70,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [showXpPop, setShowXpPop] = useState<boolean>(false);
   const [isWobbling, setIsWobbling] = useState<boolean>(false);
   const [isFillingTenFrame, setIsFillingTenFrame] = useState<boolean>(false);
-  const [isHighlightingEmptySlots, setIsHighlightingEmptySlots] = useState<boolean>(false);
+  const [hintQuestionKey, setHintQuestionKey] = useState<string | null>(null);
 
   // Interactive World 2 Merge state
   const [isMerged, setIsMerged] = useState<boolean>(false);
 
   // Interactive World 6 Steps
   const [over10Step, setOver10Step] = useState<1 | 2 | 3>(1);
+  const currentHintKey = `${question.id}:${over10Step}`;
+  const isHighlightingEmptySlots = isTenFrameHintActive(hintQuestionKey, currentHintKey);
+  const tenFramePlan = tenFrameHintPlan(question, over10Step);
 
   // Modals & Screens
   const [showVictoryScreen, setShowVictoryScreen] = useState<boolean>(false);
@@ -95,7 +101,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setShowXpPop(false);
     setIsWobbling(false);
     setIsFillingTenFrame(false);
-    setIsHighlightingEmptySlots(false);
+    setHintQuestionKey(null);
 
     let initialSpeech = 'Con hãy đếm và chọn đáp án đúng nhé!';
     if (wId === 'world_2_merge') initialSpeech = 'Hãy bấm "Gộp Lại" để xem có tất cả bao nhiêu nhé!';
@@ -137,19 +143,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handleReReadQuestion = () => {
     sound.playTap();
-    session.ownSpeech(sound.speak(mathExpressionToSpeech(question.prompt), {
-      eventType: 'REPLAY',
-      questionId: `${worldId}-${question.id}`,
-      forceReplay: true,
-    }));
+    session.ownSpeech(sound.replayQuestion(question.prompt, `${worldId}-${question.id}`));
   };
 
   const handleTriggerVisualHint = () => {
     sound.playTap();
-    setIsHighlightingEmptySlots(true);
+    setHintQuestionKey(current => activateTenFrameHint(current, currentHintKey));
     setBunnyMood('pointing');
-    setBunnySpeech('Con thử đếm những ô còn trống nhấp nháy nhé!');
-    speakEvent('HINT', 'Con thử đếm những ô còn trống nhấp nháy nhé!');
+    const hintText = tenFramePlan?.instruction ?? question.hintExplanation ?? 'Con hãy quan sát các hình để đếm nhé!';
+    setBunnySpeech(hintText);
+    speakEvent(`HINT:${over10Step}`, hintText);
   };
 
   // Handle Answer Selection
@@ -362,11 +365,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleReReadQuestion}
+              disabled={!voiceAvailability.canRead}
+              aria-label={voiceAvailability.canRead ? 'Đọc lại câu hỏi' : voiceAvailability.message}
               className="p-2 sm:px-3 sm:py-2 bg-white/95 hover:bg-amber-100 text-amber-950 rounded-2xl shadow-md border-3 border-amber-400 active:scale-95 transition flex items-center gap-1 font-black text-xs cursor-pointer"
-              title="Đọc lại câu hỏi"
+              title={voiceAvailability.canRead ? 'Đọc lại câu hỏi' : voiceAvailability.message}
             >
               <Volume2 className="w-4 h-4 text-amber-900 fill-amber-500" />
-              <span className="hidden sm:inline">Đọc lại</span>
+              <span className="hidden sm:inline">{voiceAvailability.canRead ? 'Đọc lại' : voiceAvailability.message}</span>
             </button>
 
             <button
@@ -415,6 +420,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {worldId === 'world_4_make_10' && (
             <div className="w-full flex justify-center my-2">
               <InteractiveToyTenFrame
+                key={question.id}
+                additionCount={tenFramePlan?.additionCount}
+                label={tenFramePlan?.label}
+                hintInstruction={tenFramePlan?.instruction}
                 initialCountA={question.operandA}
                 targetTotal={10}
                 highlightEmptySlots={isHighlightingEmptySlots}
@@ -430,6 +439,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {worldId === 'world_3_add_10' && (
             <div className="w-full flex justify-center my-2">
               <InteractiveToyTenFrame
+                key={question.id}
+                additionCount={tenFramePlan?.additionCount}
+                label={tenFramePlan?.label}
+                hintInstruction={tenFramePlan?.instruction}
+                highlightEmptySlots={isHighlightingEmptySlots}
                 initialCountA={question.operandA}
                 targetTotal={10}
                 itemIcon="⭐"
@@ -538,6 +552,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   </p>
                   <div className="my-2">
                     <InteractiveToyTenFrame
+                      key={`${question.id}:${over10Step}`}
+                      additionCount={tenFramePlan?.additionCount}
+                      label={tenFramePlan?.label}
+                      hintInstruction={tenFramePlan?.instruction}
+                      highlightEmptySlots={isHighlightingEmptySlots}
                       initialCountA={question.operandA}
                       targetTotal={10}
                       className="w-full max-w-sm"

@@ -30,6 +30,7 @@ const synth = {
   speak(u: any) { utterances.push(u); u.onstart?.(); },
 };
 Object.assign(globalThis, {
+  __CLOUD_TTS_CONFIGURED__: true,
   window: { location: { hostname: 'localhost', port: '' }, addEventListener() {}, speechSynthesis: synth },
   document: { hidden: false, addEventListener() {} },
   Audio: FakeAudio,

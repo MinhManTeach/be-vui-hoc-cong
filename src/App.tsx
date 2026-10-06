@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BunnyAccessory, MiniGameId, UserProgress, WorldId } from './types/math';
 import { ALL_WORLDS, loadProgress, recordChestOpen, recordLevelCompletion, saveProgress } from './utils/storage';
 import { sound } from './utils/sound';
@@ -35,9 +35,12 @@ import { PlushRevealModal } from './components/plush/PlushRevealModal';
 import { PlushFriend } from './types/plush';
 import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
 
+const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
+
 type AppScreen =
   | 'splash'
   | 'map'
+  | 'daily'
   | 'world_trail'
   | 'level_play'
   | 'boss_gate_10'
@@ -249,7 +252,25 @@ export default function App() {
           onOpenParents={() => setCurrentScreen('parents')}
           onOpenProfile={() => setShowProfileModal(true)}
           onToggleSound={handleToggleSound}
+          onOpenDaily={() => {
+            sound.initCtx();
+            sound.cancelSpeech();
+            setCurrentScreen('daily');
+          }}
         />
+      )}
+
+      {currentScreen === 'daily' && (
+        <Suspense fallback={<p className="p-8 text-center">Đang chuẩn bị chuyến đi…</p>}>
+          <DailyAdventureScreen
+            progress={progress}
+            onSaved={updated => {
+              progressRef.current = updated;
+              setProgress(updated);
+            }}
+            onExit={() => setCurrentScreen('map')}
+          />
+        </Suspense>
       )}
 
       {/* 3. World Level Trail */}

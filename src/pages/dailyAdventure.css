@@ -1,0 +1,525 @@
+.daily-adventure {
+  min-height: 100dvh;
+  background: linear-gradient(#dff5ff, #eefbd8 65%, #fff3cf);
+  color: #26494b;
+  position: relative;
+  padding: 20px clamp(12px, 3vw, 40px) 36px;
+  font-weight: 700;
+  overflow-x: hidden;
+}
+.daily-scenery {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0.22;
+  pointer-events: none;
+}
+.daily-header {
+  position: relative;
+  max-width: 980px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.daily-header > span:first-of-type {
+  font-size: clamp(16px, 3vw, 24px);
+  font-weight: 900;
+}
+.daily-adventure button {
+  min-width: 48px;
+  min-height: 48px;
+  cursor: pointer;
+  border-radius: 18px;
+  transition:
+    transform 0.18s,
+    box-shadow 0.18s;
+}
+.daily-adventure button:focus-visible {
+  outline: 4px solid #0369a1;
+  outline-offset: 5px;
+}
+.daily-adventure button:active {
+  transform: translateY(3px);
+}
+.daily-adventure button:disabled {
+  cursor: default;
+}
+.daily-header button,
+.daily-task-top button {
+  background: white;
+  padding: 12px;
+  border: 2px solid #badbdc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.daily-panel {
+  position: relative;
+  max-width: 980px;
+  margin: auto;
+  background: #fffdf6ee;
+  border: 3px solid white;
+  border-radius: 36px;
+  box-shadow:
+    0 12px 0 #588d6720,
+    0 25px 50px #365c6b16;
+  padding: clamp(16px, 4vw, 42px);
+  text-align: center;
+}
+.daily-intro,
+.daily-task-scene {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: left;
+}
+.daily-intro > div:first-child,
+.daily-task-scene > div:first-child {
+  flex-shrink: 0;
+}
+.daily-adventure h1 {
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.25;
+  font-weight: 900;
+  margin: 8px 0 12px;
+}
+.daily-adventure h2 {
+  font-size: 22px;
+  font-weight: 900;
+}
+.daily-adventure p {
+  font-size: 18px;
+  line-height: 1.6;
+}
+.daily-eyebrow {
+  font-size: 12px !important;
+  letter-spacing: 0.07em;
+  color: #527673;
+}
+.daily-path {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  position: relative;
+  gap: 12px;
+  margin: 34px 0 28px;
+  padding-bottom: 64px;
+}
+.daily-path:before {
+  content: "";
+  height: 16px;
+  background: repeating-linear-gradient(
+    90deg,
+    #e2c786 0 18px,
+    transparent 18px 28px
+  );
+  position: absolute;
+  top: 48px;
+  left: 12%;
+  right: 12%;
+  border-radius: 12px;
+}
+.daily-stop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.daily-stop strong {
+  font-size: 18px;
+}
+.daily-stop small {
+  font-size: 13px;
+}
+.daily-node {
+  position: relative;
+  border: 4px solid white !important;
+  width: 104px;
+  height: 104px;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 7px 0 #41666825;
+  background: #e7eee7;
+  color: #74857b;
+}
+.daily-node.active {
+  background: #ffdc73;
+  color: #795113;
+  box-shadow:
+    0 7px 0 #ddb14e,
+    0 0 0 7px #fff0b9;
+}
+.daily-node.done {
+  background: #b6edcd;
+  color: #24664a;
+}
+.daily-check {
+  position: absolute;
+  right: -2px;
+  bottom: 0;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #277d5a;
+  color: white;
+  padding: 3px;
+}
+.daily-friend-marker {
+  position: absolute;
+  top: 163px;
+  transform: scale(0.52);
+  transform-origin: top center;
+  height: 70px;
+}
+.daily-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px auto 8px;
+  background: #177459;
+  color: white;
+  border: 3px solid #0c5945;
+  box-shadow: 0 6px 0 #0c5945;
+  padding: 16px 28px;
+  font-size: 22px;
+  font-weight: 900;
+  min-width: min(100%, 290px);
+}
+.daily-primary:disabled {
+  opacity: 0.6;
+}
+.daily-secondary,
+.daily-hint {
+  padding: 12px 20px;
+  background: #fff5d8;
+  border: 2px solid #e0c782;
+  margin: 16px auto 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+.daily-task-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.daily-dots {
+  display: flex;
+  gap: 6px;
+}
+.daily-dots span {
+  border: 2px solid #b4cdbe;
+  background: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.daily-dots .done {
+  background: #287758;
+  color: white;
+  border-color: #287758;
+}
+.daily-task-scene {
+  min-height: 140px;
+}
+.daily-pictures {
+  background: #f1f8e9;
+  border: 2px solid #dcebd2;
+  border-radius: 24px;
+  padding: 18px;
+  margin: 16px 0;
+}
+.daily-groups {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.daily-groups > div {
+  max-width: 42%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.daily-groups b {
+  font-size: 26px;
+}
+.daily-answers {
+  display: flex;
+  justify-content: center;
+  gap: clamp(12px, 4vw, 32px);
+}
+.daily-answers button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  background: #ffdf83;
+  border: 3px solid #cf9f32;
+  box-shadow: 0 6px 0 #c39534;
+  width: clamp(80px, 18vw, 140px);
+  min-height: 84px;
+  font-size: 40px;
+  font-weight: 900;
+  color: #614510;
+}
+.daily-answers button:disabled {
+  opacity: 0.7;
+}
+.daily-feedback {
+  min-height: 32px;
+  margin-top: 20px;
+}
+.daily-help {
+  background: #e6f4ff;
+  padding: 12px;
+  border-radius: 16px;
+}
+.daily-celebration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.daily-celebration > p {
+  max-width: 610px;
+}
+.daily-chest {
+  background: #ffe7a1;
+  border: 6px solid white;
+  border-radius: 36px;
+  padding: 32px;
+  color: #946026;
+  box-shadow: 0 10px 0 #ebcc81;
+  margin: 20px;
+}
+.daily-chest.anticipation {
+  animation: daily-wiggle 0.6s ease-in-out;
+}
+.daily-sticker-reveal,
+.daily-earned {
+  background: linear-gradient(130deg, #fff2bd, #fff);
+  border: 3px solid #eed78c;
+  border-radius: 32px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+}
+.daily-sticker-reveal {
+  animation: daily-arrive 0.5s ease-out;
+}
+.daily-sticker-reveal svg,
+.daily-earned > svg {
+  width: 110px;
+  height: 100px;
+}
+.daily-sparkles {
+  color: #b7740d;
+  font-size: 28px;
+  animation: daily-arrive 0.8s;
+}
+.daily-summary {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.daily-summary span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  background: #e2f3dc;
+  font-size: 14px;
+}
+.daily-rest {
+  color: #476760;
+}
+.daily-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+.daily-sticker-grid article {
+  background: #fff7dd;
+  border: 2px solid #ecd9a0;
+  padding: 18px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.daily-sticker-grid article > svg {
+  width: 96px;
+  height: 96px;
+}
+.daily-sticker-grid p {
+  font-size: 15px;
+}
+.daily-error {
+  position: relative;
+  background: #fff1dc;
+  border: 2px solid #ad7529;
+  border-radius: 16px;
+  padding: 15px;
+  text-align: center;
+}
+.daily-entry {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 760px;
+  background: #fffdf1;
+  border: 4px solid #ffe9a3;
+  border-radius: 26px;
+  margin-bottom: 30px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  box-shadow: 0 7px 0 #75994644;
+}
+.daily-entry h2 {
+  font-size: clamp(18px, 3vw, 25px);
+  font-weight: 900;
+  color: #30614b;
+}
+.daily-entry p {
+  font-size: 15px;
+  color: #426754;
+}
+.daily-entry button {
+  min-height: 52px;
+  border-radius: 16px;
+  background: #177459;
+  color: white;
+  padding: 12px 20px;
+  font-weight: 900;
+  font-size: 18px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.daily-entry button:focus-visible {
+  outline: 4px solid #0369a1;
+  outline-offset: 4px;
+}
+@keyframes daily-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes daily-wiggle {
+  25% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+@media (max-width: 600px) {
+  .daily-panel {
+    border-radius: 26px;
+  }
+  .daily-intro,
+  .daily-task-scene {
+    gap: 10px;
+  }
+  .daily-intro > div:first-child,
+  .daily-task-scene > div:first-child {
+    transform: scale(0.75);
+    width: 105px;
+    margin-left: -16px;
+    margin-right: -10px;
+  }
+  .daily-path {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 34px;
+    padding-bottom: 50px;
+  }
+  .daily-path:before {
+    display: none;
+  }
+  .daily-friend-marker {
+    display: none;
+  }
+  .daily-node {
+    width: 88px;
+    height: 88px;
+  }
+  .daily-task-top button {
+    font-size: 0;
+    padding: 10px;
+  }
+  .daily-dots {
+    gap: 4px;
+  }
+  .daily-dots span {
+    width: 24px;
+    height: 24px;
+  }
+  .daily-task-scene h1 {
+    font-size: 23px;
+  }
+  .daily-task-scene p {
+    font-size: 15px;
+  }
+  .daily-train {
+    display: none;
+  }
+  .daily-groups > div {
+    max-width: 100%;
+  }
+  .daily-sticker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .daily-entry {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .daily-entry button {
+    width: 100%;
+  }
+  .daily-entry > svg {
+    width: 36px;
+    height: 36px;
+  }
+  .daily-entry > div {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .daily-adventure *,
+  .daily-entry * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (max-width: 400px) {
+  .daily-sticker-grid { grid-template-columns: 1fr; }
+  .daily-entry button { white-space: normal; }
+}

@@ -20,6 +20,7 @@ import { UserProgress, WorldId } from '../types/math';
 import { ALL_WORLDS, resetGameProgress, resetProgress, saveProgress } from '../utils/storage';
 import { sound } from '../utils/sound';
 import { speechService } from '../utils/speechService';
+import { useSpeechAvailability } from '../services/speech/useSpeechAvailability';
 import { verifyMake10Strategy } from '../utils/questionGenerator';
 
 interface ParentCornerScreenProps {
@@ -208,6 +209,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
     }
   });
 
+  const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
   const hasVietnameseVoice = speechService.hasVietnameseVoice();
   const detectedVoiceName = speechService.getDetectedVoiceName();
 
@@ -430,7 +432,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
               <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <span className="text-xs font-bold text-slate-700 block">
-                    Giọng đọc phát hiện: {detectedVoiceName || 'Giọng mặc định thiết bị'}
+                    Giọng đọc phát hiện: {detectedVoiceName || 'Chưa có giọng tiếng Việt trên thiết bị'}
                   </span>
                   {!hasVietnameseVoice && (
                     <span className="text-[11px] text-amber-700 font-bold block mt-1">
@@ -441,7 +443,8 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
 
                 <button
                   onClick={handleTestSpeech}
-                  disabled={testSpeechPlaying}
+                  disabled={testSpeechPlaying || !voiceAvailability.canRead}
+                  title={voiceAvailability.canRead ? 'Thử giọng tiếng Việt' : voiceAvailability.message}
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl transition flex items-center gap-2 self-start sm:self-auto shadow-sm cursor-pointer"
                 >
                   <Volume2 className={`w-4 h-4 ${testSpeechPlaying ? 'animate-bounce' : ''}`} />

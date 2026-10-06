@@ -25,7 +25,7 @@ afterEach(() => {
   URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; globalThis.fetch = originalFetch;
 });
 test('browser audio cache caps entries and revokes evicted and cleared object URLs', async () => {
-  const provider = new GoogleTTSProvider();
+  const provider = new GoogleTTSProvider(true);
   for (let i = 0; i < 130; i++) assert((await provider.speak(String(i))).completed);
   assert.equal(created, 130);
   assert.equal(revoked.length, 2);
@@ -39,7 +39,7 @@ test('browser audio cache caps entries and revokes evicted and cleared object UR
 });
 test('browser audio cache also caps total bytes', async () => {
   globalThis.fetch = async () => { fetched++; return new Response(new Blob([new Uint8Array(400_000)], { type: 'audio/mpeg' })); };
-  const provider = new GoogleTTSProvider();
+  const provider = new GoogleTTSProvider(true);
   for (let i = 0; i < 11; i++) await provider.speak(String(i));
   assert.equal(revoked.length, 1);
   await provider.speak('0');
@@ -50,14 +50,14 @@ test('browser audio cache also caps total bytes', async () => {
 test('oversized and empty audio responses never enter browser cache', async () => {
   for (const bytes of [0, 500_001]) {
     globalThis.fetch = async () => new Response(new Blob([new Uint8Array(bytes)], { type: 'audio/mpeg' }));
-    const provider = new GoogleTTSProvider();
+    const provider = new GoogleTTSProvider(true);
     assert.equal((await provider.speak('x')).completed, false);
     provider.clearCache();
   }
   assert.equal(created, 0);
 });
 test('audio playback errors evict cached audio so the next attempt can recover', async () => {
-  const provider = new GoogleTTSProvider();
+  const provider = new GoogleTTSProvider(true);
   failPlayback = true;
   assert.equal((await provider.speak('x')).completed, false);
   assert.equal(revoked.length, 1);

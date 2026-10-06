@@ -1,0 +1,15 @@
+.ten-frame-hint-target {
+  background: #fff2bb;
+  border: 3px solid #6d28d9;
+  outline: 2px solid white;
+  box-shadow: 0 0 0 3px #c4b5fd, 0 0 16px #a78bfa;
+  animation: ten-frame-hint-pulse 650ms ease-in-out 3;
+}
+.ten-frame-hint-marker { color: #6d28d9; font-size: 24px; font-weight: 900; }
+@keyframes ten-frame-hint-pulse {
+  0%, 100% { transform: scale(1.03); }
+  50% { transform: scale(1.07); box-shadow: 0 0 0 4px #a78bfa, 0 0 22px #8b5cf6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ten-frame-hint-target { animation: none; transition: none; transform: none; }
+}
