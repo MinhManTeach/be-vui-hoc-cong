@@ -1,3 +1,4 @@
+import { DEFAULT_AVATAR, normalizeAvatar } from '../domain/avatar/avatar';
 import { UserProgress, WorldId, WorldLevelData } from '../types/math';
 import { REWARDS_CATALOG } from './rewards';
 import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
@@ -50,6 +51,7 @@ export function getPlayerLevelInfo(xp: number) {
 }
 
 export const INITIAL_PROGRESS: UserProgress = {
+  avatar: {...DEFAULT_AVATAR},
   room: createRoom(),
   gameProgressVersion: 2,
   retention: createRetention(),
@@ -195,7 +197,8 @@ export function isFutureSave(raw: unknown): boolean {
   const data = object(raw);
   const retention = object(data.retention);
   const room = object(data.room);
-  return (typeof data.gameProgressVersion === 'number' && data.gameProgressVersion > SAVE_VERSION) ||
+  return (typeof object(data.avatar).version === 'number' && (object(data.avatar).version as number) > 1) ||
+    (typeof data.gameProgressVersion === 'number' && data.gameProgressVersion > SAVE_VERSION) ||
     (typeof room.version === 'number' && room.version > 1) ||
     (typeof retention.version === 'number' && retention.version > 1) ||
     (typeof object(retention.dailyAdventure).definitionVersion === 'number' && (object(retention.dailyAdventure).definitionVersion as number) > 1);
@@ -204,6 +207,7 @@ export function isFutureSave(raw: unknown): boolean {
 export function migrateProgress(value: unknown): UserProgress {
   const raw = object(value);
   const result = structuredClone(INITIAL_PROGRESS);
+  result.avatar = normalizeAvatar(raw.avatar);
   for (const field of ['currentLevel', 'totalStars', 'xp'] as const) result[field] = natural(raw[field], result[field]);
   if (raw.xp === undefined || raw.xp === null) result.xp = result.totalStars * 15;
   for (const field of ['childNickname', 'childAvatar'] as const) {

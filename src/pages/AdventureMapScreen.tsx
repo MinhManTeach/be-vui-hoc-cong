@@ -1,3 +1,4 @@
+import {ChildAvatar} from '../components/ChildAvatar';
 import React, { useEffect, useRef, useState } from 'react';
 import './dailyAdventure.css';
 import { deviceClock } from '../domain/retention/clock';
@@ -121,11 +122,11 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
           className="pointer-events-auto flex items-center gap-2.5 p-1.5 pr-4 rounded-full bg-white/95 backdrop-blur-md border-3 border-amber-400 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-300 to-yellow-200 border-2 border-amber-500 flex items-center justify-center text-2xl shadow-inner">
-            {progress.childAvatar || '🐰'}
+            <ChildAvatar config={progress.avatar} />
           </div>
           <div className="text-left">
             <div className="text-xs font-black text-slate-900 leading-tight">
-              {progress.childNickname || 'Bé Yêu'}
+              Nhân vật của con
             </div>
             <div className="text-[10px] font-extrabold text-amber-700">
               {levelInfo.title}

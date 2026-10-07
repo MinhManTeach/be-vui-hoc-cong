@@ -1,3 +1,4 @@
+import type { AvatarConfig } from '../domain/avatar/avatar';
 import type { RetentionProgress } from '../domain/retention/types';
 import type { RoomProgress } from '../domain/room/room';
 
@@ -55,6 +56,7 @@ export interface WorldLevelData {
 }
 
 export interface UserProgress {
+  avatar?: AvatarConfig;
   room?: RoomProgress;
   gameProgressVersion?: number;
   retention?: RetentionProgress;

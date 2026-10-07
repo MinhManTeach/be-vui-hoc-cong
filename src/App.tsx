@@ -30,7 +30,6 @@ import { BossChallengeGate10 } from './components/BossChallengeGate10';
 import { BossChallengeRocket10 } from './components/BossChallengeRocket10';
 import { RewardChestModal } from './components/RewardChestModal';
 import { WorldCompleteModal } from './components/WorldCompleteModal';
-import { ProfileModal } from './components/ProfileModal';
 import { PlushRevealModal } from './components/plush/PlushRevealModal';
 import { PlushFriend } from './types/plush';
 import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
@@ -39,6 +38,7 @@ import { pendingDecor, acknowledgeDecor } from './domain/room/room';
 import { commitRetentionUpdate } from './utils/storage';
 
 const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
+const AvatarCreatorScreen = lazy(() => import('./pages/AvatarCreatorScreen'));
 const MyRoomScreen = lazy(() => import('./pages/MyRoomScreen'));
 const DecorReveal = lazy(() => import('./components/room/DecorReveal'));
 
@@ -46,6 +46,7 @@ type AppScreen =
   | 'splash'
   | 'map'
   | 'daily'
+  | 'avatar'
   | 'room'
   | 'world_trail'
   | 'level_play'
@@ -67,6 +68,8 @@ export default function App() {
   const pendingChestPlush = useRef<PlushFriend | null>(null);
   const chestModalOpenRef = useRef(false);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('splash');
+  const [avatarReturn, setAvatarReturn] = useState<'map' | 'room'>('map');
+  const openAvatar = (back: 'map' | 'room') => { sound.cancelSpeech(); setAvatarReturn(back); setCurrentScreen('avatar'); };
   const [roomSelection, setRoomSelection] = useState<string | undefined>();
   const [roomSaveError, setRoomSaveError] = useState('');
   const [selectedWorldId, setSelectedWorldId] = useState<WorldId>('world_1_counting');
@@ -102,7 +105,6 @@ export default function App() {
     worldId: 'world_1_counting',
   });
 
-  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
 
   // Sync audio settings
   useEffect(() => {
@@ -234,14 +236,6 @@ export default function App() {
     handleUpdateProgress(updated);
   };
 
-  const handleSaveProfile = (nickname: string, avatar: string) => {
-    const updated = {
-      ...progress,
-      childNickname: nickname,
-      childAvatar: avatar,
-    };
-    handleUpdateProgress(updated);
-  };
 
   const currentWorldConfig = ALL_WORLDS.find((w) => w.id === selectedWorldId) || ALL_WORLDS[0];
 
@@ -259,7 +253,7 @@ export default function App() {
           companionId={resolveCompanion(progress)}
           soundEnabled={progress.soundEffectsEnabled ?? progress.soundEnabled}
           onToggleSound={handleToggleSound}
-          childAvatar={progress.childAvatar}
+          avatar={progress.avatar}
           childNickname={progress.childNickname}
         />
       )}
@@ -274,7 +268,7 @@ export default function App() {
           onOpenMiniGames={() => setCurrentScreen('minigames_hub')}
           onOpenChallenge={() => setCurrentScreen('challenge')}
           onOpenParents={() => setCurrentScreen('parents')}
-          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenProfile={() => openAvatar('map')}
           onToggleSound={handleToggleSound}
           onOpenDaily={() => {
             sound.initCtx();
@@ -285,9 +279,10 @@ export default function App() {
         />
       )}
 
+      {currentScreen === 'avatar' && <Suspense fallback={<p role="status">Đang mở nhân vật…</p>}><AvatarCreatorScreen progress={progress} onSaved={handleUpdateProgress} onExit={() => setCurrentScreen(avatarReturn)} /></Suspense>}
       {currentScreen === 'room' && (
         <Suspense fallback={<p className="p-8 text-center">Đang mở căn phòng…</p>}>
-          <MyRoomScreen progress={progress} initialDecorId={roomSelection} onSaved={handleUpdateProgress} onExit={() => setCurrentScreen('map')} />
+          <MyRoomScreen onOpenAvatar={() => openAvatar('room')} progress={progress} initialDecorId={roomSelection} onSaved={handleUpdateProgress} onExit={() => setCurrentScreen('map')} />
         </Suspense>
       )}
       {currentScreen === 'map' && newDecor && !activePlushReveal.isOpen && !activeChestModal.isOpen && !worldCompleteModalData.isOpen && (
@@ -495,13 +490,6 @@ export default function App() {
         />
       )}
 
-      {/* Profile Modal */}
-      <ProfileModal
-        isOpen={showProfileModal}
-        progress={progress}
-        onClose={() => setShowProfileModal(false)}
-        onSaveProfile={handleSaveProfile}
-      />
 
       {/* Plush Friend Checkpoint Reveal Modal */}
       <PlushRevealModal

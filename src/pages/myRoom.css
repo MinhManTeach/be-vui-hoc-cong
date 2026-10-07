@@ -43,3 +43,6 @@
 @media(prefers-reduced-motion:reduce){.my-room .decor-return{transition:none!important}}
 .decor-pop{animation:decor-pop .22s ease-out}@keyframes decor-pop{50%{transform:translate(-50%,-50%) scale(1.06)}}
 @media(prefers-reduced-motion:reduce){.decor-pop{animation:none!important}}
+
+.room-child{position:absolute;left:45%;bottom:6%;width:18%;height:31%;pointer-events:none;z-index:0}.room-avatar-cta{display:block;margin:16px auto}.room-child .child-avatar{width:100%;height:100%;display:block}
+@media(max-width:600px){.my-room header{flex-wrap:wrap}.my-room header h1{flex:1}.room-child{left:44%;width:19%}}

@@ -1,3 +1,5 @@
+import {ChildAvatar} from '../components/ChildAvatar';
+import type {AvatarConfig} from '../domain/avatar/avatar';
 import React, { useState, useEffect } from 'react';
 import { Play, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { BunnyCharacter, BunnyMood } from '../components/BunnyCharacter';
@@ -15,7 +17,7 @@ interface SplashScreenProps {
   companionId?: string | null;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
-  childAvatar?: string;
+  avatar?: AvatarConfig;
   childNickname?: string;
 }
 
@@ -29,7 +31,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   companionId,
   soundEnabled = true,
   onToggleSound,
-  childAvatar = '🐰',
+  avatar,
   childNickname = 'Bé Yêu',
 }) => {
   const [bunnyMood, setBunnyMood] = useState<BunnyMood>('wave');
@@ -135,7 +137,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         {/* Child Profile Greeting Badge */}
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md border-3 border-amber-300 shadow-md">
           <div className="w-9 h-9 rounded-full bg-amber-200 border-2 border-amber-400 flex items-center justify-center text-xl shadow-inner">
-            {childAvatar}
+            <ChildAvatar config={avatar}/>
           </div>
           <div className="text-left pr-2">
             <div className="text-xs font-black text-slate-800 leading-tight">

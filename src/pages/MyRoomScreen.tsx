@@ -1,3 +1,4 @@
+import {ChildAvatar} from '../components/ChildAvatar';
 import { useRef, useState } from 'react';
 import type { UserProgress } from '../types/math';
 import { DECOR } from '../data/decor';
@@ -8,7 +9,7 @@ import { DecorArt } from '../components/room/DecorArt';
 import {DraggableDecor} from '../components/room/DraggableDecor';
 import {suggestPlacement,type DecorPlacement} from '../domain/room/placement';
 import './myRoom.css';
-export default function MyRoomScreen({progress,onSaved,onExit,initialDecorId}:{progress:UserProgress;onSaved:(p:UserProgress)=>void;onExit:()=>void;initialDecorId?:string}) {
+export default function MyRoomScreen({progress,onSaved,onExit,onOpenAvatar,initialDecorId}:{progress:UserProgress;onSaved:(p:UserProgress)=>void;onExit:()=>void;onOpenAvatar:()=>void;initialDecorId?:string}) {
  const [controller]=useState(()=>new RoomController(progress,onSaved));
  const sceneRef = useRef<HTMLDivElement>(null);
  const [selected,setSelected]=useState<string|null>(initialDecorId??null);
@@ -38,9 +39,10 @@ export default function MyRoomScreen({progress,onSaved,onExit,initialDecorId}:{p
  <div className="room-wall-shelf" aria-hidden="true"/><div className="room-companion-shadow" aria-hidden="true"/>
  {dragging&&decor&&<div className={'room-soft-zone zone-'+(decor.zone==='FLOOR'?'floor':decor.zone==='WALL'?'wall':decor.zone==='SHELF'?'surface':'flexible')} aria-hidden="true"><span>{decor.zone==='FLOOR'?'Sàn':decor.zone==='WALL'?'Tường':decor.zone==='SHELF'?'Bàn / Kệ':'Chỗ con thích'}</span></div>}
  {snapshot.room?.placements?.map(p=><DraggableDecor key={p.id} placement={p} sceneRef={sceneRef} selected={selected===p.id} onSelect={()=>{setSelected(p.id);setHappy(false);}} onDragging={setDragging} onDrop={move}/>)}
+ <div className="room-child"><ChildAvatar config={snapshot.avatar}/></div>
  <div className="room-companion"><CompanionRenderer companionId={resolveCompanion(snapshot)} size={130} reaction={happy?'HAPPY':'IDLE'} canSpeakOnClick={false} showBadge={false}/></div>
  </div>{selected&&<div className="room-decor-actions"><button disabled={!!error} onClick={()=>suggest(selected)}>✨ Gợi ý chỗ đẹp</button><button disabled={!!error} onClick={putAway}>🎒 Cất đi</button><button onClick={()=>setSelected(null)}>Xong ✓</button></div>}<p className="room-feedback" role="status">{error||message}</p>
  {tray&&<section className="room-tray" aria-label="Đồ của con"><h2>Chạm món đồ con muốn đặt</h2><div className="room-inventory">{DECOR.map(item=>{const owned=snapshot.room?.ownedIds.includes(item.id);return <button key={item.id} disabled={!owned||!!error} aria-pressed={selected===item.id} aria-label={item.displayName+(owned?'':', '+item.unlockLabel)} onClick={()=>choose(item.id)}>
  <div className={owned?'':'decor-locked'}><DecorArt art={item.art}/></div><strong>{item.displayName}</strong>{!owned&&<small>🔒 {item.unlockLabel}</small>}</button>})}</div></section>}
- </main></div>;
+ <button className="room-avatar-cta" onClick={onOpenAvatar}>✨ Tạo nhân vật của con</button></main></div>;
 }
