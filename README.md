@@ -16,9 +16,11 @@ npm run typecheck
 Máy chủ của e-learning-studio phục vụ ứng dụng ở `/hoc-sinh/be-vui-hoc-cong/` (xem `docs/TRIEN_KHAI.md` trong repo đó). Build với đúng địa chỉ:
 
 ```
-GOOGLE_TTS_API_KEY=... npx vite build --base=/hoc-sinh/be-vui-hoc-cong/
+npx vite build --base=/hoc-sinh/be-vui-hoc-cong/
 ```
 
 Rồi chép thư mục `dist` vào `APPS_DIR/be-vui-hoc-cong/dist` trên máy chủ.
 
-Lưu ý: ứng dụng quyết định có dùng giọng đọc Google hay không **lúc build**, dựa vào việc có biến `GOOGLE_TTS_API_KEY` hay không. Khoá không bị đưa vào mã chạy trên trình duyệt, chỉ một cờ bật/tắt. Nếu build mà thiếu biến này thì ứng dụng luôn dùng giọng của trình duyệt, kể cả khi máy chủ đã có khoá.
+## Giọng đọc
+
+Ứng dụng miễn phí nên chỉ dùng giọng tiếng Việt có sẵn trên thiết bị (Web Speech API), không gọi dịch vụ giọng đọc trả phí và không cần mạng để đọc. Nếu thiết bị chưa có giọng tiếng Việt, ứng dụng vẫn chạy bình thường nhưng im lặng; Góc phụ huynh hướng dẫn cách cài giọng.

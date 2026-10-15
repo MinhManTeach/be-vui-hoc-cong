@@ -14,21 +14,18 @@ const synth = {
   speak(u: any) { spoken.push(u); queue.add(u); maxQueue = Math.max(maxQueue, queue.size); u.onstart?.(); },
 };
 Object.assign(globalThis, {
-  // Exercise all replay cases even when configured Cloud endpoints fail.
-  __CLOUD_TTS_CONFIGURED__: true,
   window: { location: { hostname: 'localhost', port: '3000' }, addEventListener() {}, speechSynthesis: synth },
   document: { hidden: false, addEventListener() {} },
   SpeechSynthesisUtterance: class { constructor(public text: string) {} },
-  Audio: class { constructor() { throw new Error('Unavailable Cloud must never create audio'); } },
+  Audio: class { constructor() { throw new Error('Speech must never create audio elements'); } },
 });
 const { speechService: manager } = await import('../src/services/speech/SpeechService');
 const { browserSpeechProvider: browser } = await import('../src/services/speech/BrowserSpeechProvider');
-const { googleTTSProvider: cloud } = await import('../src/services/speech/GoogleTTSProvider');
 const flush = async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); };
 const replay = (text = 'Có bao nhiêu chú bướm?', id = 'q1') => manager.speakVietnamese(text, { eventType: 'REPLAY', questionId: id, forceReplay: true });
 const end = (u = spoken.at(-1)) => { queue.delete(u); u.onend(); };
 beforeEach(() => {
-  manager.stop(); manager.setEnabled(true); cloud.clearCache(); cloud.recheckBackend();
+  manager.stop(); manager.setEnabled(true);
   spoken.length = 0; queue.clear(); cancels = maxQueue = fetches = 0;
   voices = [voice]; browser.initVoices();
   globalThis.fetch = (async () => { fetches++; return new Response('', { status: 503 }); }) as typeof fetch;
@@ -91,10 +88,10 @@ for (const callback of ['onend', 'onerror', 'onstart']) test(`Stale ${callback} 
   assert.equal(manager.isSpeaking(), true); assert.equal(spoken.length, 2); assert.equal(maxQueue, 1);
   end(); assert.equal(await next, true); assert.equal(manager.isSpeaking(), false);
 });
-test('Cloud 503 during a replay burst falls back once with a Vietnamese Browser voice', async t => {
+test('A replay burst speaks once with a Vietnamese Browser voice and no network', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   for (let i = 0; i < 20; i++) { void replay(); t.mock.timers.tick(20); }
-  t.mock.timers.tick(300); await flush(); assert.equal(fetches, 2); assert.equal(spoken.length, 1);
+  t.mock.timers.tick(300); await flush(); assert.equal(fetches, 0); assert.equal(spoken.length, 1);
   assert.equal(spoken[0].voice.lang, 'vi-VN'); assert.equal(manager.getStatus().activeEngine, 'Browser Vietnamese Voice'); end();
 });
 test('Late voices after a cancelled replay wait only speak the latest request', async t => {

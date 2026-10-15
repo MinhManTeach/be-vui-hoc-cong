@@ -1,4 +1,3 @@
-import { googleTTSProvider, detectEnvironment, AppEnvironment } from './GoogleTTSProvider';
 import { browserSpeechProvider, BrowserVoiceInfo } from './BrowserSpeechProvider';
 
 /**
@@ -117,7 +116,6 @@ export function mathExpressionToSpeech(text: string): string {
 }
 
 export type ActiveSpeechEngine =
-  | 'Google Cloud / Neural TTS'
   | 'Browser Vietnamese Voice'
   | 'Voice unavailable (Chế độ êm dịu)'
   | 'None';
@@ -153,9 +151,6 @@ export interface SpeechDebugStats {
   browserVoiceName: string | null;
   browserVietnameseVoices: BrowserVoiceInfo[];
   totalBrowserVoices: number;
-  environment: AppEnvironment;
-  isCloudAvailable: boolean;
-  activeEndpoint: string;
   language: string;
 }
 
@@ -164,7 +159,7 @@ export interface SpeechDebugStats {
  * Enforces:
  * 1. Global playback lock (only ONE speech at any time)
  * 2. Generation token (stale responses cannot play)
- * 3. Never plays Cloud TTS and Browser TTS simultaneously
+ * 3. Uses only the device's own Vietnamese voice (no network, no cost)
  * 4. Deduplication of identical requests within 1200ms
  * 5. Debounce & Double-tap protection for iOS Safari / iPad
  * 6. Page visibility & interruption management
@@ -174,7 +169,7 @@ export class SpeechService {
   private currentSpeechId: string | null = null;
   private speechGeneration: number = 0;
   private isCurrentlySpeaking: boolean = false;
-  private currentActiveEngine: ActiveSpeechEngine = 'Google Cloud / Neural TTS';
+  private currentActiveEngine: ActiveSpeechEngine = 'Browser Vietnamese Voice';
   private lastSpokenText: string = '';
   private lastSpeechKey: string = '';
   private lastSpeechTimestamp: number = 0;
@@ -238,11 +233,11 @@ export class SpeechService {
   }
 
   public isSpeaking(): boolean {
-    return this.isCurrentlySpeaking || googleTTSProvider.isPlaying() || browserSpeechProvider.isSpeaking();
+    return this.isCurrentlySpeaking || browserSpeechProvider.isSpeaking();
   }
 
   /**
-   * Stop all current speech completely (Cloud Audio, Browser Speech, and pending timers).
+   * Stop all current speech completely (Browser Speech and pending timers).
    * Increments generation token so any in-flight response is discarded.
    */
   public stop() {
@@ -253,7 +248,6 @@ export class SpeechService {
     this.activeRequest = null;
     this.lastSpeechKey = '';
     if (previous) { previous.voiceAbort.abort(); this.cancelledCount++; previous.resolve(false); }
-    googleTTSProvider.stop();
     browserSpeechProvider.stop();
     this.isCurrentlySpeaking = false;
     this.currentSpeechId = null;
@@ -303,17 +297,6 @@ export class SpeechService {
       };
       const run = async () => {
         if (!valid()) return;
-        const cloud = googleTTSProvider.isConfigured() ? await googleTTSProvider.speak(text, {
-          generation,
-          isGenerationValid: valid,
-          onStart: () => started('Google Cloud / Neural TTS'),
-        }) : { completed: false, started: false, cancelled: false, error: undefined };
-        if (!valid()) return;
-        if (cloud.completed || cloud.started || cloud.cancelled) {
-          // Never restart the whole phrase after any cloud playback has begun.
-          finish(cloud.completed, cloud.error);
-          return;
-        }
         const available = await browserSpeechProvider.waitForVietnameseVoice(request.voiceAbort.signal);
         if (!valid()) return;
         const accepted = available && browserSpeechProvider.speak(text, {
@@ -326,7 +309,7 @@ export class SpeechService {
         if (!valid()) return;
         if (!accepted) {
           this.currentActiveEngine = 'Voice unavailable (Chế độ êm dịu)';
-          finish(false, cloud.error);
+          finish(false);
         }
       };
       const execute = () => { if (valid()) void run().catch(error => finish(false, error)); };
@@ -454,23 +437,15 @@ export class SpeechService {
     return v ? `${v.name} (${v.lang})` : null;
   }
 
-  public recheckCloudBackend() {
-    googleTTSProvider.recheckBackend();
-  }
-
   /**
    * Returns live system status and debug metrics for Teacher Mode
    */
   public getStatus(): SpeechDebugStats {
     const browserVoice = browserSpeechProvider.getSelectedVoice();
-    const env = detectEnvironment();
-    const isCloud = googleTTSProvider.isBackendAvailable();
 
     return {
       activeEngine: this.isCurrentlySpeaking
         ? this.currentActiveEngine
-        : isCloud
-        ? 'Google Cloud / Neural TTS'
         : browserSpeechProvider.isAvailable()
         ? 'Browser Vietnamese Voice'
         : 'Voice unavailable (Chế độ êm dịu)',
@@ -485,9 +460,6 @@ export class SpeechService {
       browserVoiceName: browserVoice ? `${browserVoice.name} (${browserVoice.lang})` : null,
       browserVietnameseVoices: browserSpeechProvider.getVietnameseVoicesInfo(),
       totalBrowserVoices: browserSpeechProvider.getAllVoicesCount(),
-      environment: env,
-      isCloudAvailable: isCloud,
-      activeEndpoint: googleTTSProvider.getActiveEndpoint(),
       language: 'vi-VN',
     };
   }

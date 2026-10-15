@@ -590,12 +590,6 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                     {speechService.getStatus().cancelledCount} lần
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">Môi trường (Environment):</span>
-                  <span className="font-black text-slate-800 text-xs">
-                    {speechService.getStatus().environment}
-                  </span>
-                </div>
               </div>
 
               {/* 5 Required Voice Tests */}
@@ -635,7 +629,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
 
               {/* Instructions for Parent / Teacher */}
               <p className="text-[11px] text-slate-500 font-bold bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                💡 Hệ thống ưu tiên giọng đọc tiếng Việt chất lượng cao. Nếu chạy trên Google AI Studio Preview, Local hoặc Netlify, ứng dụng tự động nhận diện và chuyển đổi mượt mà giữa Cloud TTS và Browser Web Speech API mà không hiển thị lỗi gián đoạn cho trẻ.
+                💡 Ứng dụng đọc bằng giọng tiếng Việt có sẵn trên thiết bị, không cần mạng và không tốn phí. Nếu không nghe thấy, hãy cài giọng tiếng Việt trong phần Cài đặt của máy (iPad: Trợ năng → Nội dung được đọc → Giọng nói → Tiếng Việt).
               </p>
             </div>
 

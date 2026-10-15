@@ -19,4 +19,3 @@ export type {
   SpeechEventType,
 } from '../services/speech/SpeechService';
 export { browserSpeechProvider } from '../services/speech/BrowserSpeechProvider';
-export { googleTTSProvider } from '../services/speech/GoogleTTSProvider';

@@ -16,16 +16,13 @@ const synth = {
   speak(u: any) { spoken.push(u); u.onstart?.(); },
 };
 Object.assign(globalThis, {
-  __CLOUD_TTS_CONFIGURED__: false,
   window: { location: { hostname: 'localhost', port: '3000' }, addEventListener() {}, speechSynthesis: synth },
   document: { hidden: false, addEventListener() {} },
   SpeechSynthesisUtterance: class { constructor(public text: string) {} },
   Audio: class { constructor() { audioCreated++; } },
 });
-const { speechService: manager } = await import('../src/services/speech/SpeechService');
+const { speechService: manager, mathExpressionToSpeech } = await import('../src/services/speech/SpeechService');
 const { browserSpeechProvider: browser } = await import('../src/services/speech/BrowserSpeechProvider');
-const { googleTTSProvider: cloud } = await import('../src/services/speech/GoogleTTSProvider');
-const { cloudTtsConfigured } = await import('../src/services/speech/cloudConfig');
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const changed = () => { synth.onvoiceschanged(); for (const listener of listeners) listener(); };
 beforeEach(() => {
@@ -47,15 +44,23 @@ for (const taps of [5, 20]) test(`No-cloud replay burst ${taps} taps speaks only
   spoken[0].onend(); t.mock.timers.tick(10000); await flush(); assert.equal(spoken.length, 1);
 });
 
-test('No Cloud config uses the Browser provider directly with zero endpoint requests', async () => {
-  assert.equal(cloudTtsConfigured(), false); assert.equal(cloud.isConfigured(), false);
+test('Speech uses only the Browser provider with zero network requests', async () => {
   const p = manager.speakVietnamese('Con đếm quả táo nhé!', { questionId: 'no-cloud' }); await flush();
   assert.equal(spoken.length, 1); assert.equal(spoken[0].lang, 'vi-VN');
   assert.equal(manager.getStatus().activeEngine, 'Browser Vietnamese Voice');
   assert.equal(fetched, 0); assert.equal(audioCreated, 0); spoken[0].onend(); assert.equal(await p, true);
 });
-test('Unconfigured Google provider itself cannot fetch even when called directly', async () => {
-  await cloud.speak('Một'); assert.equal(fetched, 0); assert.equal(audioCreated, 0); assert.equal(cloud.isBackendAvailable(), false);
+test('Cancelled delayed request settles and never starts', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const pending = manager.speakVietnamese('Câu cũ', { delayMs: 400 });
+  manager.stop();
+  assert.equal(await pending, false);
+  t.mock.timers.tick(1000); await flush();
+  assert.equal(spoken.length, 0);
+});
+test('Math prompts are read as natural Vietnamese', () => {
+  assert.equal(mathExpressionToSpeech('8 + 5 = ?'), 'tám cộng năm bằng bao nhiêu?');
+  assert.equal(mathExpressionToSpeech('3 + ? = 10'), 'ba cần thêm mấy để tạo thành mười?');
 });
 test('Vietnamese selection prefers exact vi-VN over other vi languages', () => {
   voices = [vi('vi'), vi('vi-US'), vi('en-US'), vi('vi-VN')]; changed();
