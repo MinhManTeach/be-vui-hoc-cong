@@ -4,6 +4,7 @@ import { BunnyAccessory, Question, UserProgress, WorldId } from '../types/math';
 import { PlushFriend } from '../types/plush';
 import { QuestionSession } from '../utils/questionSession';
 import { generateQuestion } from '../utils/questionGenerator';
+import { REWARDS_CATALOG } from '../utils/rewards';
 import { ALL_WORLDS, recordAnswerResult, recordLevelCompletion, WorldConfig } from '../utils/storage';
 import { sound } from '../utils/sound';
 import { speechService } from '../utils/speechService';
@@ -35,6 +36,8 @@ interface GameScreenProps {
   onNextLevel: (nextLevel: number) => void;
   onToggleSound: () => void;
   onPlushUnlocked?: (friend: PlushFriend) => void;
+  /** The last level of a world is its final challenge; finishing it completes the world. */
+  onWorldComplete?: () => void;
 }
 
 const QUESTIONS_PER_LEVEL = 5;
@@ -48,6 +51,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   onNextLevel,
   onToggleSound,
   onPlushUnlocked,
+  onWorldComplete,
 }) => {
   const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
   const worldConfig: WorldConfig = ALL_WORLDS.find((w) => w.id === worldId) || ALL_WORLDS[0];
@@ -63,6 +67,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // Level session counters
   const [levelQuestionIndex, setLevelQuestionIndex] = useState<number>(1);
   const [levelCorrectCount, setLevelCorrectCount] = useState<number>(0);
+  // Stars reflect answers right on the first try; every question is eventually answered correctly.
+  const [firstTryCount, setFirstTryCount] = useState<number>(0);
+  const lastPromptRef = useRef<string>('');
   const [levelXpEarned, setLevelXpEarned] = useState<number>(0);
   const [maxComboInLevel, setMaxComboInLevel] = useState<number>(0);
   const [currentLevelStars, setCurrentLevelStars] = useState<number>(0);
@@ -92,7 +99,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const initQuestion = useCallback((wId: WorldId) => {
     session.begin();
 
-    const nextQ = generateQuestion(wId);
+    // Never show the exact same question twice in a row.
+    let nextQ = generateQuestion(wId);
+    for (let tries = 0; tries < 8 && `${nextQ.prompt}|${nextQ.itemTheme}` === lastPromptRef.current; tries++) nextQ = generateQuestion(wId);
+    lastPromptRef.current = `${nextQ.prompt}|${nextQ.itemTheme}`;
     setQuestion(nextQ);
     setSelectedAnswer(null);
     setWrongAttempts(0);
@@ -124,6 +134,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     initQuestion(worldId);
     setLevelQuestionIndex(1);
     setLevelCorrectCount(0);
+    setFirstTryCount(0);
+    setNewlyWonReward(null);
     setLevelXpEarned(0);
     setMaxComboInLevel(0);
     setCurrentLevelStars(0);
@@ -233,20 +245,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         setMaxComboInLevel(currentStreak);
       }
 
-      // Check star threshold during session
-      const calculatedStars = newCorrect >= 5 ? 3 : newCorrect >= 4 ? 2 : newCorrect >= 1 ? 1 : 0;
+      // 5 first-try answers = 3 stars, 3–4 = 2 stars, otherwise 1 star.
+      const newFirstTry = firstTryCount + (wrongAttempts === 0 ? 1 : 0);
+      setFirstTryCount(newFirstTry);
+      const calculatedStars = newFirstTry >= QUESTIONS_PER_LEVEL ? 3 : newFirstTry >= 3 ? 2 : 1;
       setCurrentLevelStars(calculatedStars);
 
       // Check if level session (5 questions) is completed
       if (levelQuestionIndex >= QUESTIONS_PER_LEVEL) {
-        const earnedFinalStars = Math.max(1, calculatedStars);
+        const isFinalLevel = levelNumber >= worldConfig.totalLevels;
         const compResult = recordLevelCompletion(
           result.updatedProgress,
           worldId,
           levelNumber,
-          earnedFinalStars
+          calculatedStars,
+          isFinalLevel
         );
         onUpdateProgress(compResult.updatedProgress);
+        setNewlyWonReward(REWARDS_CATALOG.find(item => item.id === compResult.newlyUnlockedReward) ?? null);
 
         if (compResult.newlyUnlockedPlush) {
           onPlushUnlocked?.(compResult.newlyUnlockedPlush);
@@ -294,8 +310,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handleNextLevelClick = () => {
     setShowVictoryScreen(false);
-    const nextLvl = levelNumber < worldConfig.totalLevels ? levelNumber + 1 : 1;
-    onNextLevel(nextLvl);
+    if (levelNumber >= worldConfig.totalLevels) {
+      onWorldComplete ? onWorldComplete() : onGoToMap();
+      return;
+    }
+    onNextLevel(levelNumber + 1);
   };
 
   const handleReplayClick = () => {
@@ -303,6 +322,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setIsPaused(false);
     setLevelQuestionIndex(1);
     setLevelCorrectCount(0);
+    setFirstTryCount(0);
+    setNewlyWonReward(null);
     setLevelXpEarned(0);
     setCurrentLevelStars(0);
     initQuestion(worldId);
@@ -693,7 +714,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* Victory Screen on Level Complete */}
       {showVictoryScreen && (
         <VictoryScreen
-          stars={currentLevelStars || 3}
+          stars={currentLevelStars || 1}
           xpEarned={levelXpEarned}
           bestCombo={maxComboInLevel}
           newReward={newlyWonReward}

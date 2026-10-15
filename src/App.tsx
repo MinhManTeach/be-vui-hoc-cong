@@ -36,6 +36,9 @@ import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
 import { resolveCompanion } from './utils/companion';
 import { pendingDecor, acknowledgeDecor } from './domain/room/room';
 import { commitRetentionUpdate } from './utils/storage';
+import { BreakTimeModal } from './components/BreakTimeModal';
+import { addPlayedMinute, grantExtraMinutes, isTimeUp, today } from './domain/playtime/playtime';
+import { deviceClock } from './domain/retention/clock';
 
 const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
 const AvatarCreatorScreen = lazy(() => import('./pages/AvatarCreatorScreen'));
@@ -111,6 +114,18 @@ export default function App() {
     sound.setSoundEffectsEnabled(progress.soundEffectsEnabled ?? progress.soundEnabled);
     sound.setSpeechEnabled(progress.speechEnabled);
   }, [progress.soundEnabled, progress.soundEffectsEnabled, progress.speechEnabled]);
+
+  // Count real play minutes (screen visible, past the splash) for the parent's daily limit.
+  useEffect(() => {
+    if (currentScreen === 'splash' || currentScreen === 'parents') return;
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      const next = addPlayedMinute(progressRef.current, deviceClock.day());
+      if (saveProgress(next)) { progressRef.current = next; setProgress(next); }
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [currentScreen]);
+  const timeUp = currentScreen !== 'splash' && currentScreen !== 'parents' && isTimeUp(progress, deviceClock.day());
 
   const handleUpdateProgress = (updated: UserProgress) => {
     // Publish reward/room state only after the existing save confirms durability.
@@ -213,7 +228,10 @@ export default function App() {
         plushFriend: compRes.newlyUnlockedPlush,
       });
     }
+    openWorldComplete();
+  };
 
+  const openWorldComplete = () => {
     // Find next world
     const worldIdx = ALL_WORLDS.findIndex((w) => w.id === selectedWorldId);
     const nextWorld = ALL_WORLDS[worldIdx + 1];
@@ -241,6 +259,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-amber-50 text-slate-900 font-['Nunito',sans-serif]">
+      {timeUp && (
+        <BreakTimeModal
+          limitMinutes={today(progress, deviceClock.day()).limitMinutes}
+          equipped={progress.equippedAccessories}
+          onParentExtend={() => handleUpdateProgress(grantExtraMinutes(progressRef.current, deviceClock.day()))}
+        />
+      )}
       {/* 1. Splash Screen */}
       {currentScreen === 'splash' && (
         <SplashScreen
@@ -339,6 +364,10 @@ export default function App() {
               isOpen: true,
               plushFriend: friend,
             });
+          }}
+          onWorldComplete={() => {
+            setCurrentScreen('world_trail');
+            openWorldComplete();
           }}
         />
       )}

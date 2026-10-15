@@ -2,6 +2,7 @@ import { DEFAULT_AVATAR, normalizeAvatar } from '../domain/avatar/avatar';
 import { UserProgress, WorldId, WorldLevelData } from '../types/math';
 import { REWARDS_CATALOG } from './rewards';
 import { isOwned, syncEarnedBadges } from '../domain/shop/shop';
+import { emptyPlayTime, normalizePlayTime } from '../domain/playtime/playtime';
 import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
 import { PlushFriend } from '../types/plush';
 import { createRetention } from '../domain/retention/types';
@@ -61,6 +62,7 @@ export const INITIAL_PROGRESS: UserProgress = {
   currentLevel: 1,
   totalStars: 0,
   spentStars: 0,
+  playTime: emptyPlayTime(),
   xp: 0,
   playerLevel: 1,
   unlockedWorlds: ['world_1_counting'],
@@ -248,6 +250,7 @@ export function migrateProgress(value: unknown): UserProgress {
   }
   result.playerLevel = getPlayerLevelInfo(result.xp).level;
   result.retention = validateRetention(raw.retention);
+  result.playTime = normalizePlayTime(raw.playTime);
   return reconcileRoom(reconcileOpenedCheckpoints(result), raw.room);
 }
 

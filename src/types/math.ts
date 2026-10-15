@@ -1,6 +1,7 @@
 import type { AvatarConfig } from '../domain/avatar/avatar';
 import type { RetentionProgress } from '../domain/retention/types';
 import type { RoomProgress } from '../domain/room/room';
+import type { PlayTime } from '../domain/playtime/playtime';
 
 export type WorldId = 
   | 'world_1_counting' 
@@ -100,4 +101,5 @@ export interface UserProgress {
   soundEffectsEnabled?: boolean;
   musicEnabled?: boolean;
   allUnlockedOverride?: boolean;
+  playTime?: PlayTime;
 }

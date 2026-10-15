@@ -96,6 +96,8 @@ export const ToyAnswerBlock: React.FC<ToyAnswerBlockProps> = ({
     <button
       disabled={disabled}
       onClick={onClick}
+      aria-label={`Đáp án ${value}`}
+      data-answer-block={value}
       className={`relative group w-full py-4 sm:py-5 px-3 rounded-3xl select-none transition-all duration-150 transform active:scale-95 active:translate-y-1.5 cursor-pointer ${
         isWobbling
           ? 'bg-gradient-to-b from-rose-400 to-rose-600 border-b-6 border-rose-800 text-white animate-wiggle'
