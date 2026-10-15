@@ -631,12 +631,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
         {/* Mascot & Speech Bubble Section */}
         <div className="w-full max-w-xl flex items-center justify-center gap-3 my-2">
-          {/* Prominent Sized Thỏ Bông Mascot */}
+          {/* Prominent hero */}
           <div className="shrink-0 transform transition-transform hover:scale-105">
             <CompanionRenderer companionId={resolveCompanion(progress)} size={130} showBadge={false} canSpeakOnClick={false} reaction={showVictoryScreen ? reactionFor('complete') : bunnyMood === 'happy' ? reactionFor('correct') : bunnyMood === 'encourage' ? reactionFor('wrong') : bunnyMood === 'pointing' ? reactionFor('hint') : reactionFor('question')} accessories={progress.equippedAccessories} />
           </div>
 
-          {/* Speech Bubble right beside Thỏ Bông */}
+          {/* Speech Bubble right beside the hero */}
           <div className="flex-1 bg-white/95 backdrop-blur-md border-3 border-amber-400 rounded-3xl p-3.5 shadow-xl relative companion-speech">
             {/* Bubble Tail pointing to Bunny */}
             <div className="absolute top-1/2 -left-2.5 -translate-y-1/2 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-white" />

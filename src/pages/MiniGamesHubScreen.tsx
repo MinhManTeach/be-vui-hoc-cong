@@ -13,7 +13,7 @@ const GAMES_LIST = [
   {
     id: 'game_carrot' as MiniGameId,
     title: 'Cho Thỏ Ăn Cà Rốt',
-    desc: 'Bé kéo hoặc chọn củ cà rốt có số đúng cho Thỏ Bông đói bụng nhé!',
+    desc: 'Bé kéo hoặc chọn củ cà rốt có số đúng cho bạn Thỏ đói bụng nhé!',
     icon: '🥕',
     badge: 'Vui nhộn',
     bg: 'from-orange-400 to-amber-500 shadow-orange-300',
@@ -81,7 +81,7 @@ export const MiniGamesHubScreen: React.FC<MiniGamesHubScreenProps> = ({
             🎯 KHU VUI CHƠI TOÁN HỌC
           </h2>
           <p className="text-sm font-bold text-slate-600 mt-1">
-            Chọn một trò chơi để cùng Thỏ Bông vừa chơi vừa tính toán nhé!
+            Chọn một trò chơi để vừa chơi vừa tính toán nhé!
           </p>
         </div>
 

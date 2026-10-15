@@ -39,6 +39,8 @@ import { commitRetentionUpdate } from './utils/storage';
 import { BreakTimeModal } from './components/BreakTimeModal';
 import { addPlayedMinute, grantExtraMinutes, isTimeUp, today } from './domain/playtime/playtime';
 import { deviceClock } from './domain/retention/clock';
+import { HeroAvatarContext } from './components/HeroCharacter';
+import { chooseAvatar, normalizeAvatar, updateAvatar } from './domain/avatar/avatar';
 
 const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
 const AvatarCreatorScreen = lazy(() => import('./pages/AvatarCreatorScreen'));
@@ -258,6 +260,7 @@ export default function App() {
   const currentWorldConfig = ALL_WORLDS.find((w) => w.id === selectedWorldId) || ALL_WORLDS[0];
 
   return (
+    <HeroAvatarContext.Provider value={normalizeAvatar(progress.avatar)}>
     <div className="min-h-screen bg-amber-50 text-slate-900 font-['Nunito',sans-serif]">
       {timeUp && (
         <BreakTimeModal
@@ -280,6 +283,13 @@ export default function App() {
           onToggleSound={handleToggleSound}
           avatar={progress.avatar}
           childNickname={progress.childNickname}
+          onPickBase={(base) => {
+            try {
+              handleUpdateProgress(commitRetentionUpdate(progress, p => updateAvatar(p, chooseAvatar(p.avatar, 'base', base))));
+            } catch {
+              // Another tab saved first; the splash keeps the current pick.
+            }
+          }}
         />
       )}
 
@@ -407,7 +417,7 @@ export default function App() {
         />
       )}
 
-      {/* 7. Wardrobe (Tủ đồ Thỏ Bông) */}
+      {/* 7. Wardrobe (Cửa hàng) */}
       {currentScreen === 'wardrobe' && (
         <ShopScreen
           progress={progress}
@@ -545,5 +555,6 @@ export default function App() {
         item={progress.equippedAccessories.item}
       />
     </div>
+    </HeroAvatarContext.Provider>
   );
 }

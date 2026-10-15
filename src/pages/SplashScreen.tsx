@@ -2,7 +2,7 @@ import {ChildAvatar} from '../components/ChildAvatar';
 import type {AvatarConfig} from '../domain/avatar/avatar';
 import React, { useState, useEffect } from 'react';
 import { Play, Sparkles, Volume2, VolumeX } from 'lucide-react';
-import { BunnyCharacter, BunnyMood } from '../components/BunnyCharacter';
+import { HeroCharacter, HeroMood } from '../components/HeroCharacter';
 import { CompanionRenderer } from '../components/plush/CompanionRenderer';
 import { sound } from '../utils/sound';
 import { homeCompanionCopy } from '../utils/companion';
@@ -19,6 +19,8 @@ interface SplashScreenProps {
   onToggleSound?: () => void;
   avatar?: AvatarConfig;
   childNickname?: string;
+  /** The child picks to play as a boy or a girl right on the welcome screen. */
+  onPickBase?: (base: 'boy' | 'girl') => void;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
@@ -33,8 +35,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   onToggleSound,
   avatar,
   childNickname = 'Bé Yêu',
+  onPickBase,
 }) => {
-  const [bunnyMood, setBunnyMood] = useState<BunnyMood>('wave');
+  const [bunnyMood, setHeroMood] = useState<HeroMood>('wave');
   const copy = homeCompanionCopy(companionId);
   const [reactionSpeech, setReactionSpeech] = useState<{ greeting: string; text: string } | null>(null);
   const speechText = reactionSpeech?.greeting === copy.greeting ? reactionSpeech.text : copy.greeting;
@@ -64,9 +67,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const handleMascotTap = () => {
     sound.playTap();
     sound.playStar();
-    setBunnyMood('jump');
+    setHeroMood('jump');
     const cheers = [
-      'Hi hi, Thỏ Bông yêu con nhiều lắm!',
+      'Hi hi, con giỏi lắm đó!',
       'Hôm nay chúng mình sẽ cùng học thật vui nhé!',
       'Con đã sẵn sàng thu thập thêm nhiều ngôi sao chưa nào?',
     ];
@@ -77,7 +80,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       forceReplay: true,
     });
     setTimeout(() => {
-      setBunnyMood('wave');
+      setHeroMood('wave');
     }, 1200);
   };
 
@@ -137,7 +140,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         {/* Child Profile Greeting Badge */}
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md border-3 border-amber-300 shadow-md">
           <div className="w-9 h-9 rounded-full bg-amber-200 border-2 border-amber-400 flex items-center justify-center text-xl shadow-inner">
-            <ChildAvatar config={avatar}/>
+            <ChildAvatar config={avatar} face/>
           </div>
           <div className="text-left pr-2">
             <div className="text-xs font-black text-slate-800 leading-tight">
@@ -196,9 +199,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
         {/* Mascot + Companion Play Scene */}
         <div className="relative my-2 sm:my-4 flex items-end justify-center gap-2 sm:gap-4">
-          {/* Thỏ Bông with interactive tap response */}
-          <div className="cursor-pointer" onClick={handleMascotTap} title="Chạm vào Thỏ Bông nhé!">
-            <BunnyCharacter
+          {/* The child's own hero, with interactive tap response */}
+          <div className="cursor-pointer" onClick={handleMascotTap} title="Chạm vào bạn nhỏ nhé!">
+            <HeroCharacter
               mood={bunnyMood}
               speechText={speechText}
               size="lg"
@@ -222,6 +225,34 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             </div>
           )}
         </div>
+
+        {onPickBase && (
+          <div className="flex items-center gap-3 mb-2" role="group" aria-label="Con muốn chơi cùng bạn nào?">
+            {([['boy', 'Bạn trai'], ['girl', 'Bạn gái']] as const).map(([base, label]) => {
+              const picked = (avatar?.base ?? 'boy') === base;
+              return (
+                <button
+                  key={base}
+                  aria-pressed={picked}
+                  onClick={() => {
+                    sound.playTap();
+                    if (!picked) onPickBase(base);
+                    sound.speak(base === 'boy' ? 'Con chọn bạn trai!' : 'Con chọn bạn gái!', { eventType: 'UI_CLICK', forceReplay: true });
+                  }}
+                  className={`flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full border-3 shadow-md font-black text-sm sm:text-base transition-transform active:scale-95 cursor-pointer ${
+                    picked ? 'bg-white border-amber-400 text-amber-900 scale-105' : 'bg-white/70 border-white text-slate-600'
+                  }`}
+                >
+                  <span className="w-10 h-10 rounded-full bg-sky-100 overflow-hidden">
+                    <ChildAvatar config={{ ...avatar, base, hairStyle: base === 'boy' ? 'crop' : 'pigtails' }} label={label} face />
+                  </span>
+                  {label}
+                  {picked && <span aria-hidden="true">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <p className="text-xs sm:text-sm font-extrabold text-amber-950/80 max-w-md">
           {copy.instruction}

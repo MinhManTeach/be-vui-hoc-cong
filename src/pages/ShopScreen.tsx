@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Lock, Volume2 } from 'lucide-react';
 import { AccessoryType, BunnyAccessory, UserProgress } from '../types/math';
 import { REWARDS_CATALOG } from '../utils/rewards';
 import { ALL_WORLDS } from '../utils/storage';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { HeroCharacter } from '../components/HeroCharacter';
 import { WearableIcon } from '../components/wardrobe/WearableArt';
 import { availableStars, buyItem, isOwned, nextGoal, toggleWearable } from '../domain/shop/shop';
 import { sound } from '../utils/sound';
@@ -52,7 +52,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
 
   useEffect(() => () => sound.cancelSpeech(), []);
 
-  // Tapping any item shows it on Thỏ Bông straight away, owned or not.
+  // Tapping any item shows it on the hero straight away, owned or not.
   const outfit = { ...progress.equippedAccessories };
   if (selected && !isOwned(progress, selected)) outfit[selected.type] = selected.id;
 
@@ -67,7 +67,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
     if (isOwned(progress, item)) {
       onUpdateProgress({ ...progress, equippedAccessories: toggleWearable(progress.equippedAccessories, item) });
       sound.playStar();
-      sound.speak(progress.equippedAccessories[item.type] === item.id ? 'Đã cất vào tủ!' : `Thỏ Bông mặc ${item.name} đẹp quá!`);
+      sound.speak(progress.equippedAccessories[item.type] === item.id ? 'Đã cất vào tủ!' : `Con mặc ${item.name} đẹp quá!`);
     } else if (wallet >= item.price) {
       sound.speak(`${item.name}. Giá ${item.price} ngôi sao. Con có muốn đổi không?`);
     } else {
@@ -86,7 +86,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
     onUpdateProgress(result.progress);
     setJustBought(result.item.id);
     sound.playChestOpen();
-    sound.speak(`Hoan hô! Thỏ Bông có ${result.item.name} rồi!`);
+    sound.speak(`Hoan hô! Con có ${result.item.name} rồi!`);
     try {
       confetti({ particleCount: 70, spread: 75, origin: { y: 0.35 }, colors: ['#FCD34D', '#F472B6', '#60A5FA', '#34D399'] });
     } catch { /* confetti is decoration only */ }
@@ -106,7 +106,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
           <ArrowLeft className="w-6 h-6" />
           <span className="hidden sm:inline">Quay lại</span>
         </button>
-        <h2 className="text-xl sm:text-2xl font-black text-slate-800 font-['Fredoka',sans-serif]">Cửa Hàng Thỏ Bông</h2>
+        <h2 className="text-xl sm:text-2xl font-black text-slate-800 font-['Fredoka',sans-serif]">Cửa Hàng Đồ Chơi</h2>
         <div className="flex items-center gap-1.5 bg-amber-300 border-2 border-amber-500 px-3.5 py-1.5 rounded-2xl font-black text-amber-950 text-xl shadow-[0_3px_0_#d97706]" aria-label={`Con có ${wallet} ngôi sao`}>
           <span aria-hidden="true">⭐</span>
           <span>{wallet}</span>
@@ -114,12 +114,12 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
       </header>
 
       <main className="max-w-5xl mx-auto px-3 sm:px-6 pt-4 grid md:grid-cols-[minmax(0,20rem)_1fr] gap-4">
-        {/* Stage: Thỏ Bông wears whatever the child taps */}
+        {/* Stage: the hero wears whatever the child taps */}
         <section className="sticky top-[4.25rem] z-30 md:top-20 self-start bg-white/95 border-4 border-amber-300 rounded-[2rem] p-2.5 md:p-4 shadow-lg flex flex-row md:flex-col items-center gap-3 md:gap-0">
           <div className="relative w-32 md:w-full shrink-0 flex justify-center rounded-3xl bg-gradient-to-b from-sky-100 to-emerald-100 pt-2 md:pt-3 pb-1 overflow-hidden">
             <div className="absolute bottom-0 inset-x-0 h-8 bg-emerald-200/70 rounded-t-[50%]" />
             {justBought && <div className="absolute top-2 right-3 text-3xl animate-bounce" aria-hidden="true">✨</div>}
-            <BunnyCharacter
+            <HeroCharacter
               mood={justBought ? 'celebrate' : 'happy'}
               size="md"
               className="md:scale-125 md:my-6"
@@ -148,7 +148,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
                 </p>
               ) : selectedOwned ? (
                 <p className="mt-3 py-2.5 rounded-2xl bg-emerald-100 text-emerald-800 font-black">
-                  {selectedWorn ? '✓ Thỏ Bông đang mặc' : 'Đã cất trong tủ'}
+                  {selectedWorn ? '✓ Con đang mặc' : 'Đã cất trong tủ'}
                 </p>
               ) : wallet >= selected.price ? (
                 <button
@@ -168,7 +168,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgre
             </div>
           ) : (
             <div className="w-full md:mt-3 text-center">
-              <p className="font-black text-slate-700 text-sm md:text-base">Chạm vào món đồ để Thỏ Bông mặc thử!</p>
+              <p className="font-black text-slate-700 text-sm md:text-base">Chạm vào món đồ để mặc thử nhé!</p>
               {goal && (
                 <div className="mt-3 flex items-center gap-2 bg-amber-50 border-2 border-amber-200 rounded-2xl p-2">
                   <WearableIcon id={goal.item.id} className="w-12 h-12 shrink-0" />

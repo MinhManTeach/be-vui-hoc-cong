@@ -251,7 +251,7 @@ export const ALL_PLUSH_FRIENDS: PlushFriend[] = [
     encouragements: [
       'Phép tính vượt mười tuyệt đỉnh! Con là thiên tài!',
       'Cầu vồng bảy sắc tỏa sáng vì những nỗ lực tuyệt vời của con!',
-      'Thỏ Bông và tất cả các bạn thú bông đều yêu quý con!',
+      'Tất cả các bạn thú bông đều yêu quý con!',
     ],
     favoriteFoodOrToy: 'Ngôi sao pha lê thần kỳ 🌟',
     miniGamePrompt: 'Thắp sáng 7 sắc cầu vồng trên bầu trời đêm!',

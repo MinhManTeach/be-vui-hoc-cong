@@ -4,19 +4,19 @@ import {REWARDS_CATALOG} from '../../utils/rewards';
 import {toggleWearable as toggleShopWearable} from '../../domain/shop/shop';
 
 /**
- * Thỏ Bông's wardrobe art. Every item is drawn once in a 100×100 box in a sticker style
+ * The hero's wardrobe art. Every item is drawn once in a 100×100 box in a sticker style
  * (warm brown outline, flat colour, one soft shade, one white shine) and that same drawing is
- * used for the shop card and on the bunny, placed by its slot's box in the bunny's 200×240 space.
+ * used for the shop card and on the hero, placed by its slot's box in the hero's 200×240 space.
  */
 type Box = {x: number; y: number; size: number};
 type Anchor = Box & {name: string; layer: string};
 
 export const WEARABLE_ANCHORS: Record<AccessoryType, Anchor> = {
-  hat: {name: 'HEAD', x: 35, y: -8, size: 130, layer: 'HEADWEAR'},
-  glasses: {name: 'FACE', x: 50, y: 89, size: 100, layer: 'GLASSES'},
+  hat: {name: 'HEAD', x: 26, y: -17, size: 148, layer: 'HEADWEAR'},
+  glasses: {name: 'FACE', x: 50, y: 93, size: 100, layer: 'GLASSES'},
   shirt: {name: 'BODY', x: 40, y: 128, size: 120, layer: 'CLOTHING'},
   backpack: {name: 'BACK', x: 110, y: 108, size: 86, layer: 'BACK'},
-  item: {name: 'HAND', x: 112, y: 88, size: 95, layer: 'ACCESSORY'},
+  item: {name: 'HAND', x: 128, y: 94, size: 95, layer: 'ACCESSORY'},
   badge: {name: 'BADGE', x: 86, y: 182, size: 28, layer: 'BADGE'},
 };
 
@@ -187,7 +187,7 @@ const artworks: Record<string, React.ReactNode> = {
     </g>
   ),
 
-  /* ───── Áo (vừa thân Thỏ Bông) ───── */
+  /* ───── Áo (vừa thân bạn nhỏ) ───── */
   shirt_sky: (
     <g>
       <path d={BODY} fill="#FFF" fillOpacity="0" />
@@ -377,7 +377,7 @@ const heroCape = (
   <path d="M10 22 Q-14 70 -6 112 Q50 98 106 112 Q114 70 90 22 Z" fill="#EF4444" {...line} />
 );
 // The astronaut helmet is a glass bubble around the whole head, not a hat on top of it.
-const SPECIAL_BOX: Record<string, Box> = {hat_astronaut: {x: 46, y: 58, size: 108}};
+const SPECIAL_BOX: Record<string, Box> = {hat_astronaut: {x: 27, y: 34, size: 146}};
 const ICON_OVERRIDE: Record<string, string> = {shirt_hero: '-16 14 132 104', hat_astronaut: '2 -4 96 112', hat_bow: '40 24 72 64'};
 
 function placement(box: Box) {

@@ -21,8 +21,8 @@ export function homeCompanionCopy(companionId: string | null | undefined) {
   const friend = ALL_PLUSH_FRIENDS.find(friend => friend.id === companionId);
   return {
     greeting: friend
-      ? `Chào con! Thỏ Bông và ${friend.name} đang chờ con cùng phiêu lưu!`
-      : 'Chào con! Cùng Thỏ Bông đi phiêu lưu nhé!',
+      ? `Chào con! ${friend.name} đang chờ con cùng phiêu lưu!`
+      : 'Chào con! Mình cùng đi phiêu lưu nhé!',
     instruction: 'Chạm nút bên dưới để bắt đầu hành trình nhé!',
     companionId: friend?.id ?? null,
   };

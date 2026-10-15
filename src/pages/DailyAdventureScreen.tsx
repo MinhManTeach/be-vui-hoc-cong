@@ -217,7 +217,7 @@ export default function DailyAdventureScreen({
   }, [view, q?.id]);
   const friendId = ready ? resolveCompanion(controller.progress,controller.adventure.companionId) : "bunny";
   const friendName =
-    ALL_PLUSH_FRIENDS.find((f) => f.id === friendId)?.name ?? "Thỏ Bông";
+    ALL_PLUSH_FRIENDS.find((f) => f.id === friendId)?.name ?? "Bạn nhỏ";
   const story =
     task === "help"
       ? `Bạn ${friendName} đang chuẩn bị giỏ quà. Con giúp bạn nhé!`

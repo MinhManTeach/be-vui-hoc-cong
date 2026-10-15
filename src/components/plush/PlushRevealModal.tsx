@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Heart, Home, ArrowRight } from 'lucide-react';
 import { PlushFriend } from '../../types/plush';
 import { PlushFriendRenderer } from './PlushFriendRenderer';
-import { BunnyCharacter } from '../BunnyCharacter';
+import { HeroCharacter } from '../HeroCharacter';
 import { QuestionSession } from '../../utils/questionSession';
 import { sound } from '../../utils/sound';
 
@@ -176,7 +176,7 @@ export const PlushRevealModal: React.FC<PlushRevealModalProps> = ({
                     phase === 'hugged' ? 'translate-x-3 rotate-6' : ''
                   }`}
                 >
-                  <BunnyCharacter
+                  <HeroCharacter
                     mood="cheer"
                     size="sm"
                     hat={hat}

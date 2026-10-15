@@ -110,7 +110,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
   const handleTestSpeech = () => {
     setTestSpeechPlaying(true);
     sound.cancelSpeech();
-    speechService.speak('Xin chào! Mình là Thỏ Bông. Chúng mình cùng học toán nhé!', {
+    speechService.speak('Xin chào! Chúng mình cùng học toán nhé!', {
       onEnd: () => setTestSpeechPlaying(false),
     });
     setTimeout(() => setTestSpeechPlaying(false), 3000);
@@ -390,7 +390,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                 <span>Giới hạn thời gian chơi mỗi ngày</span>
               </h3>
               <p className="text-xs font-semibold text-slate-500 mt-1 mb-3">
-                Hết giờ, Thỏ Bông sẽ nhắc bé nghỉ mắt. Chỉ người lớn mới cho chơi thêm được. Trẻ 4–6 tuổi nên chơi khoảng 15–30 phút mỗi ngày.
+                Hết giờ, app sẽ nhắc bé nghỉ mắt. Chỉ người lớn mới cho chơi thêm được. Trẻ 4–6 tuổi nên chơi khoảng 15–30 phút mỗi ngày.
               </p>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Giới hạn thời gian">
                 {LIMIT_OPTIONS.map((minutes) => {
@@ -633,7 +633,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                 </div>
                 <div className="flex flex-col gap-2">
                   {[
-                    { id: 1, label: 'TEST 1', text: 'Xin chào! Mình là Thỏ Bông.' },
+                    { id: 1, label: 'TEST 1', text: 'Xin chào! Chúng mình cùng học toán nhé.' },
                     { id: 2, label: 'TEST 2', text: 'Một cộng hai bằng ba.' },
                     { id: 3, label: 'TEST 3', text: 'Tám cộng năm bằng bao nhiêu?' },
                     { id: 4, label: 'TEST 4', text: 'Bạn số một cần thêm mấy để tạo thành mười?' },
@@ -852,7 +852,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
               </div>
               <div className="flex items-center gap-2 text-rose-800">
                 <span>•</span>
-                <span>Vị trí Thỏ Bông: <strong>Thế giới 1 – Bài 1</strong></span>
+                <span>Vị trí của bé: <strong>Thế giới 1 – Bài 1</strong></span>
               </div>
               <div className="flex items-center gap-2 text-rose-800">
                 <span>•</span>

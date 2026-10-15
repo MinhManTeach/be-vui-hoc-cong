@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BunnyCharacter } from './BunnyCharacter';
+import { HeroCharacter } from './HeroCharacter';
 import { sound } from '../utils/sound';
 
 interface BreakTimeModalProps {
@@ -17,7 +17,7 @@ export const BreakTimeModal: React.FC<BreakTimeModalProps> = ({ limitMinutes, eq
 
   useEffect(() => {
     sound.cancelSpeech();
-    sound.speak('Con chơi giỏi lắm! Thỏ Bông buồn ngủ rồi. Mình cùng nghỉ mắt, uống nước và vận động một chút nhé. Hẹn gặp con ngày mai!');
+    sound.speak('Con chơi giỏi lắm! Giờ mình nghỉ một chút nhé. Mình cùng nghỉ mắt, uống nước và vận động một chút nhé. Hẹn gặp con ngày mai!');
     return () => sound.cancelSpeech();
   }, []);
 
@@ -31,7 +31,7 @@ export const BreakTimeModal: React.FC<BreakTimeModalProps> = ({ limitMinutes, eq
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-950/80 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Giờ nghỉ">
       <div className="bg-gradient-to-b from-indigo-100 to-sky-50 rounded-[2rem] border-4 border-indigo-300 p-6 max-w-sm w-full text-center shadow-2xl">
         <div className="flex justify-center">
-          <BunnyCharacter mood="sleeping" size="md" showSpeechBubble={false} {...equipped} />
+          <HeroCharacter mood="sleeping" size="md" showSpeechBubble={false} {...equipped} />
         </div>
         <h2 className="mt-2 text-2xl font-black text-indigo-950">Giờ nghỉ rồi!</h2>
         <p className="mt-2 font-bold text-slate-700 leading-relaxed">

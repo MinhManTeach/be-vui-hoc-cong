@@ -3,11 +3,11 @@ import {test} from 'node:test';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {REWARDS_CATALOG} from '../src/utils/rewards';
-import {BunnyCharacter} from '../src/components/BunnyCharacter';
+import {HeroCharacter} from '../src/components/HeroCharacter';
 import {getWearableDefinition,toggleWearable,WearableIcon,WEARABLE_ANCHORS,WEARABLE_LAYER_ORDER} from '../src/components/wardrobe/WearableArt';
 import {INITIAL_PROGRESS,saveProgress,loadProgress,migrateProgress} from '../src/utils/storage';
 import {ShopScreen} from '../src/pages/ShopScreen';
-const render=(props={})=>renderToStaticMarkup(createElement(BunnyCharacter,{showSpeechBubble:false,...props}));
+const render=(props={})=>renderToStaticMarkup(createElement(HeroCharacter,{showSpeechBubble:false,...props}));
 for(const item of REWARDS_CATALOG)test('shared artwork and correct anchor: '+item.id,()=>{
  const def=getWearableDefinition(item.id,item.type)!;
  assert.equal(def.catalog,item);assert.equal(def.anchor,WEARABLE_ANCHORS[item.type]);
@@ -32,12 +32,12 @@ test('unknown and wrong-category items safely render no accessory',()=>{
  assert(!html.includes('data-anchor="HEAD"'));assert(!html.includes('data-anchor="FACE"'));assert(!html.includes('data-anchor="BADGE"'));
 });
 test('render order puts back before clothing and headwear after face/glasses',()=>{
- const html=render({hat:'hat_cap',glasses:'glasses_smart',badge:'badge_cosmic'});
+ const html=render({hat:'hat_cap',glasses:'glasses_smart',badge:'badge_cosmic',item:'item_carrot'});
  const layers=['BACK','CLOTHING','GLASSES','HEADWEAR','ACCESSORY','BADGE'];
  let prior=-1;for(const layer of layers){const index=html.indexOf('data-layer="'+layer+'"');assert(index>prior);prior=index;}
  assert.deepEqual(WEARABLE_LAYER_ORDER,['BACK','BODY','CLOTHING','FACE','GLASSES','HEADWEAR','ACCESSORY','BADGE']);
- assert(html.indexOf('cx="100" cy="118"')<html.indexOf('data-layer="GLASSES"'));
- const hero=render({shirt:'shirt_hero'});assert(hero.indexOf('data-layer="BACK" transform=')<hero.indexOf('cx="100" cy="180"'));
+ assert(html.indexOf('data-layer="face"')<html.indexOf('data-layer="GLASSES"'));
+ const hero=render({shirt:'shirt_hero'});assert(hero.indexOf('data-layer="BACK" transform=')<hero.indexOf('data-layer="body"'));
 });
 test('save/reload retains equipped hat and other progression fields',()=>{
  const stored=new Map<string,string>();Object.assign(globalThis,{window:{},localStorage:{getItem:(key:string)=>stored.get(key)??null,setItem:(key:string,v:string)=>stored.set(key,v),removeItem:(key:string)=>stored.delete(key)}});
@@ -46,7 +46,7 @@ test('save/reload retains equipped hat and other progression fields',()=>{
 });
 test('old save retains default outfit and needs no wearable schema migration',()=>{
  const p=migrateProgress({xp:12,totalStars:3});assert.equal(p.xp,12);assert.equal(p.totalStars,3);
- const html=render(p.equippedAccessories);for(const id of ['shirt_sky','backpack_yellow','item_carrot'])assert(html.includes('data-wearable-id="'+id+'"'));
+ const html=render(p.equippedAccessories);for(const id of ['shirt_sky','backpack_yellow'])assert(html.includes('data-wearable-id="'+id+'"'));
 });
 test('wardrobe cards use the same rendered SVG definition as selected hat',()=>{
  const p={...structuredClone(INITIAL_PROGRESS),equippedAccessories:{...INITIAL_PROGRESS.equippedAccessories,hat:'hat_pirate'}};

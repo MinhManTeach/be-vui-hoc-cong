@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Flame, Trophy, Gift, Volume2, VolumeX, Users, Gamepad2 } from 'lucide-react';
 import { UserProgress } from '../types/math';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { HeroCharacter } from '../components/HeroCharacter';
 import { sound } from '../utils/sound';
 
 interface HomeScreenProps {
@@ -81,7 +81,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Hero Bunny Mascot */}
       <div className="my-2">
-        <BunnyCharacter
+        <HeroCharacter
           mood="happy"
           size="lg"
           speechText={bunnyGreeting}

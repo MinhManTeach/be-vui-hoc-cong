@@ -5,7 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {REWARDS_CATALOG} from '../src/utils/rewards';
 import {INITIAL_PROGRESS, migrateProgress, recordChestOpen, recordLevelCompletion} from '../src/utils/storage';
 import {availableStars, buyItem, EMPTY_SLOT, isOwned, nextGoal, syncEarnedBadges, toggleWearable} from '../src/domain/shop/shop';
-import {BunnyCharacter} from '../src/components/BunnyCharacter';
+import {HeroCharacter} from '../src/components/HeroCharacter';
 import type {UserProgress} from '../src/types/math';
 
 const stored = new Map<string, string>();
@@ -67,9 +67,12 @@ test('a chest gift is a shop item, never a badge or something already owned', ()
 
 test('taking off the carrot keeps it off (default outfit does not come back)', () => {
   const p = fresh();
-  const off = toggleWearable(p.equippedAccessories, {type: 'item', id: 'item_carrot'});
+  assert.equal(p.equippedAccessories.item, EMPTY_SLOT, 'a new child starts with empty hands');
+  const on = toggleWearable(p.equippedAccessories, {type: 'item', id: 'item_carrot'});
+  assert.equal(on.item, 'item_carrot');
+  const off = toggleWearable(on, {type: 'item', id: 'item_carrot'});
   assert.equal(off.item, EMPTY_SLOT);
-  const html = renderToStaticMarkup(createElement(BunnyCharacter, {...off, showSpeechBubble: false}));
+  const html = renderToStaticMarkup(createElement(HeroCharacter, {...off, showSpeechBubble: false}));
   assert(!html.includes('data-wearable-id="item_carrot"'));
   assert.equal(toggleWearable(off, {type: 'item', id: 'item_carrot'}).item, 'item_carrot');
 });

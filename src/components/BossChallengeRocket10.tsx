@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Volume2, Sparkles, Rocket, ArrowRight } from 'lucide-react';
 import { sound } from '../utils/sound';
-import { BunnyCharacter } from './BunnyCharacter';
+import { HeroCharacter } from './HeroCharacter';
 
 interface BossChallengeRocket10Props {
   onComplete: (earnedStars: number) => void;
@@ -176,7 +176,7 @@ export const BossChallengeRocket10: React.FC<BossChallengeRocket10Props> = ({
 
           {/* Bunny mascot */}
           <div className="absolute bottom-2 right-4">
-            <BunnyCharacter
+            <HeroCharacter
               mood={isLaunched ? 'celebrate' : 'happy'}
               size="sm"
               showSpeechBubble={false}

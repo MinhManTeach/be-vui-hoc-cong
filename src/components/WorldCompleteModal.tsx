@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Sparkles, Trophy, ArrowRight } from 'lucide-react';
 import { sound } from '../utils/sound';
-import { BunnyCharacter } from './BunnyCharacter';
+import { HeroCharacter } from './HeroCharacter';
 
 interface WorldCompleteModalProps {
   worldName: string;
@@ -62,7 +62,7 @@ export const WorldCompleteModal: React.FC<WorldCompleteModalProps> = ({
 
         {/* Bunny in Celebration */}
         <div className="my-3 flex justify-center">
-          <BunnyCharacter
+          <HeroCharacter
             mood="celebrate"
             size="md"
             showSpeechBubble={false}

@@ -100,7 +100,7 @@ export function mathExpressionToSpeech(text: string): string {
   if (splitRegex.test(cleaned)) {
     cleaned = cleaned.replace(splitRegex, (_, a) => {
       const aVi = numberToVietnamese(parseInt(a, 10));
-      return `Con hãy giúp Thỏ Bông tách số ${aVi} nhé!`;
+      return `Con hãy tách số ${aVi} nhé!`;
     });
   }
 
@@ -190,7 +190,7 @@ export class SpeechService {
     'Chính xác! Con giỏi lắm!',
     'Tuyệt vời! Con làm đúng rồi!',
     'Đúng rồi! Bé xuất sắc quá!',
-    'Hay quá! Thỏ Bông rất tự hào về con!',
+    'Hay quá! Con giỏi quá đi!',
     'Chuẩn xác! Tiếp tục phát huy nhé!',
   ];
 
@@ -421,7 +421,7 @@ export class SpeechService {
   }
 
   public testSpeech(customText?: string) {
-    const textToTest = customText || 'Xin chào! Mình là Thỏ Bông. Chúng mình cùng học toán nhé!';
+    const textToTest = customText || 'Xin chào! Chúng mình cùng học toán nhé!';
     this.speakVietnamese(textToTest, {
       eventType: 'UI_CLICK',
       forceReplay: true,

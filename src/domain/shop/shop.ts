@@ -42,7 +42,7 @@ export type BuyResult =
   | { ok: true; progress: UserProgress; item: BunnyAccessory }
   | { ok: false; reason: 'unknown' | 'owned' | 'not_for_sale' | 'not_enough'; missing?: number };
 
-/** Buying spends stars once, marks the item owned and puts it on Thỏ Bông. */
+/** Buying spends stars once, marks the item owned and puts it on the hero. */
 export function buyItem(progress: UserProgress, id: string): BuyResult {
   const item = findItem(id);
   if (!item) return { ok: false, reason: 'unknown' };

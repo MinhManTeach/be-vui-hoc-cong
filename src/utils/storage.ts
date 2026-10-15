@@ -78,7 +78,7 @@ export const INITIAL_PROGRESS: UserProgress = {
   equippedAccessories: {
     shirt: 'shirt_sky',
     backpack: 'backpack_yellow',
-    item: 'item_carrot',
+    item: 'none',
   },
   unlockedAccessories: ['shirt_sky', 'backpack_yellow', 'item_carrot'],
   unlockedPlushFriends: [],

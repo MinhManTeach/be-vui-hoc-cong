@@ -6,7 +6,7 @@ import { Lock, Star, Sparkles, Volume2, VolumeX, Play, Compass, Award } from 'lu
 import { UserProgress, WorldId } from '../types/math';
 import { ALL_WORLDS, getPlayerLevelInfo } from '../utils/storage';
 import { sound } from '../utils/sound';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { HeroCharacter } from '../components/HeroCharacter';
 import { CompanionRenderer } from '../components/plush/CompanionRenderer';
 import { PlushFriendRenderer } from '../components/plush/PlushFriendRenderer';
 import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
@@ -122,7 +122,7 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
           className="pointer-events-auto flex items-center gap-2.5 p-1.5 pr-4 rounded-full bg-white/95 backdrop-blur-md border-3 border-amber-400 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-300 to-yellow-200 border-2 border-amber-500 flex items-center justify-center text-2xl shadow-inner">
-            <ChildAvatar config={progress.avatar} />
+            <ChildAvatar config={progress.avatar} face />
           </div>
           <div className="text-left">
             <div className="text-xs font-black text-slate-900 leading-tight">
@@ -206,7 +206,7 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
               <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
             </div>
             <p className="text-xs sm:text-sm font-black text-amber-950 drop-shadow-xs">
-              Chạm vào vùng đất để cùng Thỏ Bông tiếp tục hành trình nhé!
+              Chạm vào vùng đất để tiếp tục hành trình nhé!
             </p>
           </div>
 
@@ -278,14 +278,14 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
 
                   {/* INTERACTIVE BIOME REALM NODE CONTAINER */}
                   <div className="relative group flex flex-col items-center z-10">
-                    {/* Thỏ Bông & Active Companion Standing on the Current Active Realm */}
+                    {/* Hero & Active Companion Standing on the Current Active Realm */}
                     {isCurrent && (
                       <div
                         className={`absolute -top-28 sm:-top-32 -left-20 sm:-left-28 z-30 pointer-events-none flex items-end gap-1 ${
                           isHopping ? 'animate-bounce' : 'animate-bounce-subtle'
                         }`}
                       >
-                        <BunnyCharacter
+                        <HeroCharacter
                           mood={isHopping ? 'jump' : 'wave'}
                           size="md"
                           speechText="Vào đây phiêu lưu nào!"
