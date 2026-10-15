@@ -22,6 +22,7 @@ import { sound } from '../utils/sound';
 import { speechService } from '../utils/speechService';
 import { useSpeechAvailability } from '../services/speech/useSpeechAvailability';
 import { verifyMake10Strategy } from '../utils/questionGenerator';
+import { LopsoAppsCard } from '../components/LopsoAppsCard';
 
 interface ParentCornerScreenProps {
   progress: UserProgress;
@@ -44,6 +45,8 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
   const [activeTeacherTab, setActiveTeacherTab] = useState<'settings' | 'teacher_mode'>('settings');
   const [isResetConfirmModalOpen, setIsResetConfirmModalOpen] = useState<boolean>(false);
   const [resetToastMessage, setResetToastMessage] = useState<string | null>(null);
+  // Hooks must run on every render, so this sits above the parent-gate early return.
+  const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
 
   // Simple math challenge for parent
   const [gateChallenge] = useState(() => {
@@ -209,7 +212,6 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
     }
   });
 
-  const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
   const hasVietnameseVoice = speechService.hasVietnameseVoice();
   const detectedVoiceName = speechService.getDetectedVoiceName();
 
@@ -376,6 +378,8 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                 * Nguyên tắc mầm non: Không ép trẻ học thuộc vẹt hay nhớ máy móc. Hãy để trẻ chạm, đếm và nhìn thấy số lượng cụ thể.
               </div>
             </div>
+
+            <LopsoAppsCard />
 
             {/* Audio & Speech Settings */}
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs mb-6">

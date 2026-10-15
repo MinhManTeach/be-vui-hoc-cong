@@ -239,6 +239,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </div>
           <span className="tracking-wide">BẮT ĐẦU PHIÊU LƯU!</span>
         </button>
+        <p className="mt-3 text-xs font-extrabold text-amber-950/60">Một sản phẩm miễn phí của lopso.vn</p>
       </footer>
     </div>
   );
