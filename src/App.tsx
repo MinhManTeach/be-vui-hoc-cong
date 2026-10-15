@@ -14,7 +14,7 @@ import { AdventureMapScreen } from './pages/AdventureMapScreen';
 import { WorldLevelTrailScreen } from './pages/WorldLevelTrailScreen';
 import { GameScreen } from './pages/GameScreen';
 import { PlushHouseScreen } from './pages/PlushHouseScreen';
-import { WardrobeScreen } from './pages/WardrobeScreen';
+import { ShopScreen } from './pages/ShopScreen';
 import { MiniGamesHubScreen } from './pages/MiniGamesHubScreen';
 import { ChallengeScreen } from './pages/ChallengeScreen';
 import { ParentCornerScreen } from './pages/ParentCornerScreen';
@@ -380,7 +380,7 @@ export default function App() {
 
       {/* 7. Wardrobe (Tủ đồ Thỏ Bông) */}
       {currentScreen === 'wardrobe' && (
-        <WardrobeScreen
+        <ShopScreen
           progress={progress}
           onUpdateProgress={handleUpdateProgress}
           onBack={() => setCurrentScreen('map')}

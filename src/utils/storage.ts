@@ -1,6 +1,7 @@
 import { DEFAULT_AVATAR, normalizeAvatar } from '../domain/avatar/avatar';
 import { UserProgress, WorldId, WorldLevelData } from '../types/math';
 import { REWARDS_CATALOG } from './rewards';
+import { isOwned, syncEarnedBadges } from '../domain/shop/shop';
 import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
 import { PlushFriend } from '../types/plush';
 import { createRetention } from '../domain/retention/types';
@@ -59,6 +60,7 @@ export const INITIAL_PROGRESS: UserProgress = {
   childAvatar: '🐰',
   currentLevel: 1,
   totalStars: 0,
+  spentStars: 0,
   xp: 0,
   playerLevel: 1,
   unlockedWorlds: ['world_1_counting'],
@@ -210,6 +212,7 @@ export function migrateProgress(value: unknown): UserProgress {
   result.avatar = normalizeAvatar(raw.avatar);
   for (const field of ['currentLevel', 'totalStars', 'xp'] as const) result[field] = natural(raw[field], result[field]);
   if (raw.xp === undefined || raw.xp === null) result.xp = result.totalStars * 15;
+  result.spentStars = Math.min(natural(raw.spentStars, 0), result.totalStars);
   for (const field of ['childNickname', 'childAvatar'] as const) {
     if (typeof raw[field] === 'string') result[field] = raw[field];
   }
@@ -321,28 +324,10 @@ export function commitRetentionUpdate(progress: UserProgress, update: (current: 
   if (!saveProgress(next)) throw new Error('Retention save failed; do not publish this update');
   return next;
 }
-// Check newly unlocked rewards based on star count
+// Shop items are bought with stars; only badges are awarded automatically (one per finished world).
 export function checkAndUpdateUnlockedRewards(progress: UserProgress): { newRewards: string[]; updatedProgress: UserProgress } {
-  const currentUnlocked = new Set(progress.unlockedAccessories);
-  const newlyUnlocked: string[] = [];
-
-  REWARDS_CATALOG.forEach((reward) => {
-    if (progress.totalStars >= reward.unlockStars && !currentUnlocked.has(reward.id)) {
-      newlyUnlocked.push(reward.id);
-      currentUnlocked.add(reward.id);
-    }
-  });
-
-  if (newlyUnlocked.length > 0) {
-    const updated = {
-      ...progress,
-      unlockedAccessories: Array.from(currentUnlocked),
-    };
-    saveProgress(updated);
-    return { newRewards: newlyUnlocked, updatedProgress: updated };
-  }
-
-  return { newRewards: [], updatedProgress: progress };
+  const { progress: updatedProgress, newBadges } = syncEarnedBadges(progress);
+  return { newRewards: newBadges, updatedProgress };
 }
 
 // Record question answer result
@@ -542,7 +527,8 @@ export function recordChestOpen(
   }
 
   const currentUnlocked = new Set(progress.unlockedAccessories);
-  const lockedItems = REWARDS_CATALOG.filter(r => !currentUnlocked.has(r.id));
+  // A chest is a free gift from the shop; badges still have to be earned.
+  const lockedItems = REWARDS_CATALOG.filter(r => r.type !== 'badge' && !isOwned(progress, r));
   const rewardedItem = lockedItems.length > 0
     ? lockedItems[Math.floor(Math.random() * lockedItems.length)].id
     : null;

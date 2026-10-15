@@ -45,7 +45,10 @@ export interface BunnyAccessory {
   name: string;
   type: AccessoryType;
   emoji: string;
-  unlockStars: number;
+  /** Stars spent to buy it in the shop; 0 = starter item. */
+  price: number;
+  /** Badges only: the world whose boss awards it, or 'all' for every world. */
+  earnedBy?: WorldId | 'all';
   description: string;
 }
 
@@ -64,6 +67,8 @@ export interface UserProgress {
   childAvatar?: string;
   currentLevel: number;
   totalStars: number;
+  /** Stars spent in the shop. Available stars = totalStars - spentStars. */
+  spentStars?: number;
   xp: number;
   playerLevel: number; // 1 to 6+
   unlockedWorlds: WorldId[];

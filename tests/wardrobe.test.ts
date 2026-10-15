@@ -6,7 +6,7 @@ import {REWARDS_CATALOG} from '../src/utils/rewards';
 import {BunnyCharacter} from '../src/components/BunnyCharacter';
 import {getWearableDefinition,toggleWearable,WearableIcon,WEARABLE_ANCHORS,WEARABLE_LAYER_ORDER} from '../src/components/wardrobe/WearableArt';
 import {INITIAL_PROGRESS,saveProgress,loadProgress,migrateProgress} from '../src/utils/storage';
-import {WardrobeScreen} from '../src/pages/WardrobeScreen';
+import {ShopScreen} from '../src/pages/ShopScreen';
 const render=(props={})=>renderToStaticMarkup(createElement(BunnyCharacter,{showSpeechBubble:false,...props}));
 for(const item of REWARDS_CATALOG)test('shared artwork and correct anchor: '+item.id,()=>{
  const def=getWearableDefinition(item.id,item.type)!;
@@ -50,7 +50,7 @@ test('old save retains default outfit and needs no wearable schema migration',()
 });
 test('wardrobe cards use the same rendered SVG definition as selected hat',()=>{
  const p={...structuredClone(INITIAL_PROGRESS),equippedAccessories:{...INITIAL_PROGRESS.equippedAccessories,hat:'hat_pirate'}};
- const html=renderToStaticMarkup(createElement(WardrobeScreen,{progress:p,onUpdateProgress:()=>{},onBack:()=>{}}));
+ const html=renderToStaticMarkup(createElement(ShopScreen,{progress:p,onUpdateProgress:()=>{},onBack:()=>{}}));
  assert(html.includes('data-wearable-id="hat_pirate"'));for(const hat of REWARDS_CATALOG.filter(x=>x.type==='hat'))assert(html.includes('data-wearable-icon="'+hat.id+'"'));
 });
 test('all character sizes keep identical viewBox and accessory anchor transforms',()=>{

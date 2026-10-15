@@ -491,9 +491,9 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
           className="flex flex-col items-center gap-0.5 text-slate-600 hover:text-amber-600 active:scale-90 transition cursor-pointer"
         >
           <div className="w-11 h-11 rounded-2xl bg-slate-100 hover:bg-amber-100 border-2 border-slate-300 hover:border-amber-400 flex items-center justify-center text-2xl shadow-sm">
-            🎒
+            🛍️
           </div>
-          <span className="text-[10px] font-extrabold">Tủ Đồ</span>
+          <span className="text-[10px] font-extrabold">Cửa Hàng</span>
         </button>
 
         {/* Mini-Games */}
