@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { ArrowRight, RotateCcw, Home, Sparkles } from 'lucide-react';
-import { BunnyCharacter } from './BunnyCharacter';
+import { HeroCharacter } from './HeroCharacter';
 import { sound } from '../utils/sound';
 
 interface SuccessModalProps {
@@ -57,7 +57,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
         <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-rose-200/50 rounded-full blur-2xl -z-0" />
 
         {/* Bunny cheering */}
-        <BunnyCharacter
+        <HeroCharacter
           mood="cheer"
           size="md"
           showSpeechBubble={false}

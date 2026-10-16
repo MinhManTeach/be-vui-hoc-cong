@@ -1,3 +1,8 @@
+import type { AvatarConfig } from '../domain/avatar/avatar';
+import type { RetentionProgress } from '../domain/retention/types';
+import type { RoomProgress } from '../domain/room/room';
+import type { PlayTime } from '../domain/playtime/playtime';
+
 export type WorldId = 
   | 'world_1_counting' 
   | 'world_2_merge' 
@@ -41,7 +46,10 @@ export interface BunnyAccessory {
   name: string;
   type: AccessoryType;
   emoji: string;
-  unlockStars: number;
+  /** Stars spent to buy it in the shop; 0 = starter item. */
+  price: number;
+  /** Badges only: the world whose boss awards it, or 'all' for every world. */
+  earnedBy?: WorldId | 'all';
   description: string;
 }
 
@@ -52,11 +60,16 @@ export interface WorldLevelData {
 }
 
 export interface UserProgress {
+  avatar?: AvatarConfig;
+  room?: RoomProgress;
   gameProgressVersion?: number;
+  retention?: RetentionProgress;
   childNickname?: string;
   childAvatar?: string;
   currentLevel: number;
   totalStars: number;
+  /** Stars spent in the shop. Available stars = totalStars - spentStars. */
+  spentStars?: number;
   xp: number;
   playerLevel: number; // 1 to 6+
   unlockedWorlds: WorldId[];
@@ -88,4 +101,5 @@ export interface UserProgress {
   soundEffectsEnabled?: boolean;
   musicEnabled?: boolean;
   allUnlockedOverride?: boolean;
+  playTime?: PlayTime;
 }

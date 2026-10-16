@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Star } from 'lucide-react';
+import { tenFrameHintTargets } from '../utils/tenFrameHint';
 
 interface InteractiveToyTenFrameProps {
   initialCountA: number; // e.g. 1
   targetTotal?: number;  // 10
   highlightEmptySlots?: boolean; // Visual hint trigger
+  additionCount?: number;
+  label?: string;
+  hintInstruction?: string;
   isAnimatingFill?: boolean; // When answered correctly, fly items in!
   itemIcon?: string; // e.g. 🍎 or ⭐
   fillItemIcon?: string;
@@ -15,6 +19,9 @@ export const InteractiveToyTenFrame: React.FC<InteractiveToyTenFrameProps> = ({
   initialCountA,
   targetTotal = 10,
   highlightEmptySlots = false,
+  additionCount = targetTotal - initialCountA,
+  label = `Đã có ${initialCountA} • Thêm mấy để đủ ${targetTotal}?`,
+  hintInstruction,
   isAnimatingFill = false,
   itemIcon = '🍎',
   fillItemIcon = '⭐',
@@ -22,6 +29,7 @@ export const InteractiveToyTenFrame: React.FC<InteractiveToyTenFrameProps> = ({
 }) => {
   const [filledSlots, setFilledSlots] = useState<number>(initialCountA);
   const [isTrayGlowing, setIsTrayGlowing] = useState<boolean>(false);
+  const hintTargets = tenFrameHintTargets(initialCountA, additionCount, highlightEmptySlots);
 
   useEffect(() => {
     setFilledSlots(initialCountA);
@@ -60,17 +68,21 @@ export const InteractiveToyTenFrame: React.FC<InteractiveToyTenFrameProps> = ({
           const isSlotFilledWithA = index < initialCountA;
           const isSlotFilledWithAnim = index >= initialCountA && index < filledSlots;
           const isSlotEmpty = index >= filledSlots;
+          const isHintTarget = isSlotEmpty && hintTargets.includes(index + 1);
 
           return (
             <div
               key={index}
+              data-hint-target={isHintTarget ? 'true' : undefined}
+              aria-label={`Ô ${index + 1}${isHintTarget ? ', thêm vào đây' : isSlotEmpty ? ', để trống' : ', đã có'}`}
+              style={isHintTarget ? { animationDelay: `${(index - initialCountA) * 70}ms` } : undefined}
               className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-3 flex items-center justify-center relative transition-all duration-300 select-none ${
                 isSlotFilledWithA
                   ? 'bg-gradient-to-b from-white to-amber-50 border-amber-400 shadow-md'
                   : isSlotFilledWithAnim
                   ? 'bg-gradient-to-b from-yellow-200 to-amber-400 border-yellow-500 scale-105 animate-bounce shadow-md'
-                  : highlightEmptySlots
-                  ? 'bg-purple-100 border-purple-400 shadow-[0_0_12px_#c084fc] animate-pulse ring-2 ring-purple-300'
+                  : isHintTarget
+                  ? 'ten-frame-hint-target'
                   : 'bg-amber-900/10 border-amber-600/30 shadow-inner'
               }`}
             >
@@ -92,10 +104,8 @@ export const InteractiveToyTenFrame: React.FC<InteractiveToyTenFrameProps> = ({
                 </span>
               )}
 
-              {isSlotEmpty && highlightEmptySlots && (
-                <span className="text-lg sm:text-xl text-purple-400 animate-spin-slow">
-                  ✨
-                </span>
+              {isHintTarget && (
+                <span className="ten-frame-hint-marker" aria-hidden="true"><Star className="w-7 h-7" strokeWidth={2.5} /><span className="absolute top-0 right-1 text-sm">+</span></span>
               )}
             </div>
           );
@@ -112,8 +122,7 @@ export const InteractiveToyTenFrame: React.FC<InteractiveToyTenFrameProps> = ({
           </span>
         ) : (
           <span>
-            Đã có <strong className="text-amber-700 text-base">{initialCountA}</strong> ô • Còn thiếu{' '}
-            <strong className="text-purple-700 text-base">{targetTotal - initialCountA}</strong> ô
+            {highlightEmptySlots && hintInstruction ? hintInstruction : label}
           </span>
         )}
       </div>

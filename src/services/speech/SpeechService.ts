@@ -1,4 +1,3 @@
-import { googleTTSProvider, detectEnvironment, AppEnvironment } from './GoogleTTSProvider';
 import { browserSpeechProvider, BrowserVoiceInfo } from './BrowserSpeechProvider';
 
 /**
@@ -101,7 +100,7 @@ export function mathExpressionToSpeech(text: string): string {
   if (splitRegex.test(cleaned)) {
     cleaned = cleaned.replace(splitRegex, (_, a) => {
       const aVi = numberToVietnamese(parseInt(a, 10));
-      return `Con hãy giúp Thỏ Bông tách số ${aVi} nhé!`;
+      return `Con hãy tách số ${aVi} nhé!`;
     });
   }
 
@@ -117,7 +116,6 @@ export function mathExpressionToSpeech(text: string): string {
 }
 
 export type ActiveSpeechEngine =
-  | 'Google Cloud / Neural TTS'
   | 'Browser Vietnamese Voice'
   | 'Voice unavailable (Chế độ êm dịu)'
   | 'None';
@@ -153,9 +151,6 @@ export interface SpeechDebugStats {
   browserVoiceName: string | null;
   browserVietnameseVoices: BrowserVoiceInfo[];
   totalBrowserVoices: number;
-  environment: AppEnvironment;
-  isCloudAvailable: boolean;
-  activeEndpoint: string;
   language: string;
 }
 
@@ -164,7 +159,7 @@ export interface SpeechDebugStats {
  * Enforces:
  * 1. Global playback lock (only ONE speech at any time)
  * 2. Generation token (stale responses cannot play)
- * 3. Never plays Cloud TTS and Browser TTS simultaneously
+ * 3. Uses only the device's own Vietnamese voice (no network, no cost)
  * 4. Deduplication of identical requests within 1200ms
  * 5. Debounce & Double-tap protection for iOS Safari / iPad
  * 6. Page visibility & interruption management
@@ -174,13 +169,13 @@ export class SpeechService {
   private currentSpeechId: string | null = null;
   private speechGeneration: number = 0;
   private isCurrentlySpeaking: boolean = false;
-  private currentActiveEngine: ActiveSpeechEngine = 'Google Cloud / Neural TTS';
+  private currentActiveEngine: ActiveSpeechEngine = 'Browser Vietnamese Voice';
   private lastSpokenText: string = '';
   private lastSpeechKey: string = '';
   private lastSpeechTimestamp: number = 0;
-  private lastReplayTimestamp: number = 0;
 
   private pendingTimer: any = null;
+  private activeRequest: { generation: number; key: string; voiceAbort: AbortController; resolve: (value: boolean) => void } | null = null;
 
   // Debug counters
   private requestCount: number = 0;
@@ -195,7 +190,7 @@ export class SpeechService {
     'Chính xác! Con giỏi lắm!',
     'Tuyệt vời! Con làm đúng rồi!',
     'Đúng rồi! Bé xuất sắc quá!',
-    'Hay quá! Thỏ Bông rất tự hào về con!',
+    'Hay quá! Con giỏi quá đi!',
     'Chuẩn xác! Tiếp tục phát huy nhé!',
   ];
 
@@ -238,195 +233,112 @@ export class SpeechService {
   }
 
   public isSpeaking(): boolean {
-    return this.isCurrentlySpeaking || googleTTSProvider.isPlaying() || browserSpeechProvider.isSpeaking();
+    return this.isCurrentlySpeaking || browserSpeechProvider.isSpeaking();
   }
 
   /**
-   * Stop all current speech completely (Cloud Audio, Browser Speech, and pending timers).
+   * Stop all current speech completely (Browser Speech and pending timers).
    * Increments generation token so any in-flight response is discarded.
    */
   public stop() {
     this.speechGeneration++;
-    if (this.pendingTimer) {
-      clearTimeout(this.pendingTimer);
-      this.pendingTimer = null;
-    }
-    googleTTSProvider.stop();
+    if (this.pendingTimer !== null) clearTimeout(this.pendingTimer);
+    this.pendingTimer = null;
+    const previous = this.activeRequest;
+    this.activeRequest = null;
+    this.lastSpeechKey = '';
+    if (previous) { previous.voiceAbort.abort(); this.cancelledCount++; previous.resolve(false); }
     browserSpeechProvider.stop();
     this.isCurrentlySpeaking = false;
     this.currentSpeechId = null;
   }
 
-  public cancel() {
-    this.stop();
-  }
+  public cancel() { this.stop(); }
 
-  /**
-   * Primary entry point for speech.
-   * Ensures Deduplication, Generation Token validation, and single active playback.
-   */
-  public async speakVietnamese(
-    rawText: string,
-    options?: SpeechRequestOptions
-  ): Promise<boolean> {
-    if (!this.enabled) return false;
-
-    const normalized = mathExpressionToSpeech(rawText);
-    if (!normalized) return false;
-
-    const eventType = options?.eventType || 'SYSTEM';
-    const questionId = options?.questionId || '';
-    const speechKey = `${eventType}:${questionId}:${normalized}`;
-
+  public speakVietnamese(rawText: string, options?: SpeechRequestOptions): Promise<boolean> {
+    if (!this.enabled) return Promise.resolve(false);
+    const text = mathExpressionToSpeech(rawText);
+    if (!text) return Promise.resolve(false);
+    const key = `${options?.eventType || 'SYSTEM'}:${options?.questionId || ''}:${text}`;
     const now = Date.now();
-
-    // 1. Double-tap throttling for user-initiated replay (min 350ms between clicks)
-    if (options?.forceReplay) {
-      if (now - this.lastReplayTimestamp < 350) {
-        this.cancelledCount++;
-        console.log(`[TTS DOUBLE-TAP BLOCKED] ${speechKey}`);
-        return false;
-      }
-      this.lastReplayTimestamp = now;
-    } else {
-      // 2. Deduplication check: ignore identical event + question + text within 1200ms
-      if (speechKey === this.lastSpeechKey && now - this.lastSpeechTimestamp < 1200) {
-        this.dedupedCount++;
-        console.log(`[TTS DEDUPED] ${speechKey}`);
-        return false;
-      }
+    const isReplay = options?.eventType === 'REPLAY';
+    // Replays replace the pending intent even when their text/key is identical.
+    // Ordinary render/question intents retain the existing duplicate protection.
+    if (!isReplay && !options?.forceReplay && (this.activeRequest?.key === key || (key === this.lastSpeechKey && now - this.lastSpeechTimestamp < 1200))) {
+      this.dedupedCount++;
+      return Promise.resolve(false);
     }
 
-    this.lastSpeechKey = speechKey;
-    this.lastSpeechTimestamp = now;
-    this.lastSpokenText = normalized;
-
-    // 3. Handle delay or debounce
-    const delay = options?.delayMs ?? options?.debounceMs ?? 0;
-
-    if (delay > 0) {
-      this.stop();
-      return new Promise<boolean>((resolve) => {
-        this.pendingTimer = setTimeout(async () => {
-          this.pendingTimer = null;
-          const result = await this.executeSpeech(normalized, speechKey, options);
-          resolve(result);
-        }, delay);
-      });
-    }
-
-    return this.executeSpeech(normalized, speechKey, options);
-  }
-
-  /**
-   * Internal execution pipeline:
-   * 1. Invalidate previous generation
-   * 2. Try Cloud TTS (drop if stale)
-   * 3. Fallback to Browser Speech ONCE if Cloud fails
-   * 4. NEVER play both simultaneously
-   */
-  private async executeSpeech(
-    text: string,
-    speechKey: string,
-    options?: SpeechRequestOptions
-  ): Promise<boolean> {
-    // Increment generation token: any prior request waiting for fetch/audio is now DEAD
     this.stop();
-    const reqGen = ++this.speechGeneration;
-    this.currentSpeechId = speechKey;
+    const generation = this.speechGeneration;
+    this.lastSpeechKey = key;
+    this.lastSpeechTimestamp = now;
+    this.lastSpokenText = text;
+    this.currentSpeechId = key;
     this.requestCount++;
-
-    console.log(`[TTS REQUEST] id: ${speechKey}, gen: ${reqGen}`);
-
-    const isGenStillValid = () => this.enabled && reqGen === this.speechGeneration;
-
-    // Step 1: Try Cloud TTS Provider
-    try {
-      const cloudSuccess = await googleTTSProvider.speak(text, {
-        generation: reqGen,
-        isGenerationValid: isGenStillValid,
-        onEnd: () => {
-          if (isGenStillValid()) {
-            this.isCurrentlySpeaking = false;
-            console.log(`[TTS END] Cloud TTS finished: ${speechKey}`);
-            options?.onEnd?.();
-          }
-        },
-        onError: (err) => {
-          console.warn('[TTS] Cloud TTS error in manager:', err);
-        },
-      });
-
-      // Check generation token again after async await
-      if (!isGenStillValid()) {
-        this.cancelledCount++;
-        console.log(`[TTS CANCEL] Dropped stale Cloud TTS response, gen: ${reqGen}`);
-        return false;
-      }
-
-      if (cloudSuccess) {
-        this.playCount++;
+    return new Promise(resolve => {
+      const request = { generation, key, resolve, voiceAbort: new AbortController() };
+      this.activeRequest = request;
+      const valid = () => this.enabled && this.activeRequest === request && generation === this.speechGeneration;
+      const finish = (played: boolean, error?: unknown) => {
+        if (!valid()) return;
+        this.activeRequest = null;
+        this.currentSpeechId = null;
+        this.isCurrentlySpeaking = false;
+        resolve(played);
+        if (error) options?.onError?.(error);
+        else options?.onEnd?.();
+      };
+      const started = (engine: ActiveSpeechEngine) => {
+        if (!valid() || this.isCurrentlySpeaking) return;
+        this.currentActiveEngine = engine;
         this.isCurrentlySpeaking = true;
-        this.currentActiveEngine = 'Google Cloud / Neural TTS';
-        console.log(`[TTS PLAY] Cloud TTS: ${speechKey}, gen: ${reqGen}`);
-        // CRITICAL: Successfully played via Cloud TTS -> RETURN TRUE. NEVER TOUCH BROWSER SPEECH!
-        return true;
-      }
-    } catch {
-      // Cloud TTS failed or timed out
-    }
-
-    // Check generation token before attempting fallback
-    if (!isGenStillValid()) {
-      this.cancelledCount++;
-      return false;
-    }
-
-    // Step 2: Fallback to Browser Vietnamese Voice (ONLY if genuine vi-VN voice exists)
-    if (browserSpeechProvider.isAvailable()) {
-      try {
-        const browserSuccess = browserSpeechProvider.speak(text, {
-          generation: reqGen,
-          isGenerationValid: isGenStillValid,
-          onEnd: () => {
-            if (isGenStillValid()) {
-              this.isCurrentlySpeaking = false;
-              console.log(`[TTS END] Browser Speech finished: ${speechKey}`);
-              options?.onEnd?.();
-            }
-          },
-          onError: () => {
-            if (isGenStillValid()) {
-              this.isCurrentlySpeaking = false;
-            }
-          },
+        this.playCount++;
+      };
+      const run = async () => {
+        if (!valid()) return;
+        const available = await browserSpeechProvider.waitForVietnameseVoice(request.voiceAbort.signal);
+        if (!valid()) return;
+        const accepted = available && browserSpeechProvider.speak(text, {
+          generation,
+          isGenerationValid: valid,
+          onStart: () => started('Browser Vietnamese Voice'),
+          onEnd: () => finish(true),
+          onError: error => finish(false, error),
         });
-
-        if (browserSuccess && isGenStillValid()) {
-          this.playCount++;
-          this.isCurrentlySpeaking = true;
-          this.currentActiveEngine = 'Browser Vietnamese Voice';
-          console.log(`[TTS PLAY] Browser Speech: ${speechKey}, gen: ${reqGen}`);
-          return true;
+        if (!valid()) return;
+        if (!accepted) {
+          this.currentActiveEngine = 'Voice unavailable (Chế độ êm dịu)';
+          finish(false);
         }
-      } catch (browserErr) {
-        console.warn('[TTS] Browser fallback exception:', browserErr);
-      }
-    }
-
-    // Step 3: Last fallback - graceful silence
-    this.isCurrentlySpeaking = false;
-    this.currentActiveEngine = 'Voice unavailable (Chế độ êm dịu)';
-    console.log(`[TTS END] No speech played (fallback completed): ${speechKey}`);
-    options?.onEnd?.();
-    return false;
+      };
+      const execute = () => { if (valid()) void run().catch(error => finish(false, error)); };
+      const delay = isReplay ? 300 : options?.delayMs ?? options?.debounceMs ?? 0;
+      if (delay > 0) {
+        this.pendingTimer = setTimeout(() => {
+          if (!valid()) return;
+          this.pendingTimer = null;
+          execute();
+        }, delay);
+      } else execute();
+    });
   }
 
   /**
    * Alias for backward compatibility
    */
   public speak(text: string, options?: SpeechRequestOptions) {
-    this.speakVietnamese(text, options);
+    return this.speakVietnamese(text, options);
+  }
+
+  /** Cleanup can cancel only the request created by this call. */
+  public speakScoped(text: string, options?: SpeechRequestOptions): () => void {
+    const previousGeneration = this.speechGeneration;
+    void this.speakVietnamese(text, options);
+    const generation = this.speechGeneration;
+    return () => {
+      if (generation !== previousGeneration && generation === this.speechGeneration) this.stop();
+    };
   }
 
   public replay() {
@@ -436,6 +348,10 @@ export class SpeechService {
         forceReplay: true,
       });
     }
+  }
+
+  public replayQuestion(prompt: string, questionId: string): () => void {
+    return this.speakScoped(prompt, { eventType: 'REPLAY', questionId, forceReplay: true });
   }
 
   /**
@@ -448,13 +364,12 @@ export class SpeechService {
   ): () => void {
     if (!this.enabled) return () => {};
 
-    this.speakVietnamese(rawPrompt, {
+    return this.speakScoped(rawPrompt, {
       ...options,
       eventType: 'QUESTION_CHANGED',
       delayMs,
     });
 
-    return () => this.stop();
   }
 
   /**
@@ -506,7 +421,7 @@ export class SpeechService {
   }
 
   public testSpeech(customText?: string) {
-    const textToTest = customText || 'Xin chào! Mình là Thỏ Bông. Chúng mình cùng học toán nhé!';
+    const textToTest = customText || 'Xin chào! Chúng mình cùng học toán nhé!';
     this.speakVietnamese(textToTest, {
       eventType: 'UI_CLICK',
       forceReplay: true,
@@ -522,23 +437,15 @@ export class SpeechService {
     return v ? `${v.name} (${v.lang})` : null;
   }
 
-  public recheckCloudBackend() {
-    googleTTSProvider.recheckBackend();
-  }
-
   /**
    * Returns live system status and debug metrics for Teacher Mode
    */
   public getStatus(): SpeechDebugStats {
     const browserVoice = browserSpeechProvider.getSelectedVoice();
-    const env = detectEnvironment();
-    const isCloud = googleTTSProvider.isBackendAvailable();
 
     return {
       activeEngine: this.isCurrentlySpeaking
         ? this.currentActiveEngine
-        : isCloud
-        ? 'Google Cloud / Neural TTS'
         : browserSpeechProvider.isAvailable()
         ? 'Browser Vietnamese Voice'
         : 'Voice unavailable (Chế độ êm dịu)',
@@ -553,9 +460,6 @@ export class SpeechService {
       browserVoiceName: browserVoice ? `${browserVoice.name} (${browserVoice.lang})` : null,
       browserVietnameseVoices: browserSpeechProvider.getVietnameseVoicesInfo(),
       totalBrowserVoices: browserSpeechProvider.getAllVoicesCount(),
-      environment: env,
-      isCloudAvailable: isCloud,
-      activeEndpoint: googleTTSProvider.getActiveEndpoint(),
       language: 'vi-VN',
     };
   }

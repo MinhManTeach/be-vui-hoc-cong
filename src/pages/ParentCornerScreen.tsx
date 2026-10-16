@@ -20,7 +20,11 @@ import { UserProgress, WorldId } from '../types/math';
 import { ALL_WORLDS, resetGameProgress, resetProgress, saveProgress } from '../utils/storage';
 import { sound } from '../utils/sound';
 import { speechService } from '../utils/speechService';
+import { useSpeechAvailability } from '../services/speech/useSpeechAvailability';
 import { verifyMake10Strategy } from '../utils/questionGenerator';
+import { LopsoAppsCard } from '../components/LopsoAppsCard';
+import { LIMIT_OPTIONS, setDailyLimit, today } from '../domain/playtime/playtime';
+import { deviceClock } from '../domain/retention/clock';
 
 interface ParentCornerScreenProps {
   progress: UserProgress;
@@ -43,6 +47,8 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
   const [activeTeacherTab, setActiveTeacherTab] = useState<'settings' | 'teacher_mode'>('settings');
   const [isResetConfirmModalOpen, setIsResetConfirmModalOpen] = useState<boolean>(false);
   const [resetToastMessage, setResetToastMessage] = useState<string | null>(null);
+  // Hooks must run on every render, so this sits above the parent-gate early return.
+  const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
 
   // Simple math challenge for parent
   const [gateChallenge] = useState(() => {
@@ -104,7 +110,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
   const handleTestSpeech = () => {
     setTestSpeechPlaying(true);
     sound.cancelSpeech();
-    speechService.speak('Xin chào! Mình là Thỏ Bông. Chúng mình cùng học toán nhé!', {
+    speechService.speak('Xin chào! Chúng mình cùng học toán nhé!', {
       onEnd: () => setTestSpeechPlaying(false),
     });
     setTimeout(() => setTestSpeechPlaying(false), 3000);
@@ -286,7 +292,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                   <span className="text-xs font-bold">Thời gian hôm nay</span>
                 </div>
                 <span className="text-2xl font-black text-slate-800">
-                  ~{Math.max(5, Math.round(totalAnswered * 0.4))} phút
+                  {today(progress, deviceClock.day()).minutes} phút
                 </span>
               </div>
 
@@ -375,6 +381,40 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
               </div>
             </div>
 
+            <LopsoAppsCard />
+
+            {/* Daily play-time limit */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs mb-6">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-sky-500" />
+                <span>Giới hạn thời gian chơi mỗi ngày</span>
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mt-1 mb-3">
+                Hết giờ, app sẽ nhắc bé nghỉ mắt. Chỉ người lớn mới cho chơi thêm được. Trẻ 4–6 tuổi nên chơi khoảng 15–30 phút mỗi ngày.
+              </p>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Giới hạn thời gian">
+                {LIMIT_OPTIONS.map((minutes) => {
+                  const active = today(progress, deviceClock.day()).limitMinutes === minutes;
+                  return (
+                    <button
+                      key={minutes}
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => {
+                        sound.playTap();
+                        onUpdateProgress(setDailyLimit(progress, deviceClock.day(), minutes));
+                      }}
+                      className={`px-4 py-2 rounded-xl text-sm font-black border-2 transition cursor-pointer ${
+                        active ? 'bg-sky-500 border-sky-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:border-sky-300'
+                      }`}
+                    >
+                      {minutes === 0 ? 'Không giới hạn' : `${minutes} phút`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Audio & Speech Settings */}
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs mb-6">
               <h3 className="text-base font-black text-slate-800 mb-4 flex items-center gap-2">
@@ -430,7 +470,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
               <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <span className="text-xs font-bold text-slate-700 block">
-                    Giọng đọc phát hiện: {detectedVoiceName || 'Giọng mặc định thiết bị'}
+                    Giọng đọc phát hiện: {detectedVoiceName || 'Chưa có giọng tiếng Việt trên thiết bị'}
                   </span>
                   {!hasVietnameseVoice && (
                     <span className="text-[11px] text-amber-700 font-bold block mt-1">
@@ -441,7 +481,8 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
 
                 <button
                   onClick={handleTestSpeech}
-                  disabled={testSpeechPlaying}
+                  disabled={testSpeechPlaying || !voiceAvailability.canRead}
+                  title={voiceAvailability.canRead ? 'Thử giọng tiếng Việt' : voiceAvailability.message}
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl transition flex items-center gap-2 self-start sm:self-auto shadow-sm cursor-pointer"
                 >
                   <Volume2 className={`w-4 h-4 ${testSpeechPlaying ? 'animate-bounce' : ''}`} />
@@ -583,12 +624,6 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                     {speechService.getStatus().cancelledCount} lần
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">Môi trường (Environment):</span>
-                  <span className="font-black text-slate-800 text-xs">
-                    {speechService.getStatus().environment}
-                  </span>
-                </div>
               </div>
 
               {/* 5 Required Voice Tests */}
@@ -598,7 +633,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
                 </div>
                 <div className="flex flex-col gap-2">
                   {[
-                    { id: 1, label: 'TEST 1', text: 'Xin chào! Mình là Thỏ Bông.' },
+                    { id: 1, label: 'TEST 1', text: 'Xin chào! Chúng mình cùng học toán nhé.' },
                     { id: 2, label: 'TEST 2', text: 'Một cộng hai bằng ba.' },
                     { id: 3, label: 'TEST 3', text: 'Tám cộng năm bằng bao nhiêu?' },
                     { id: 4, label: 'TEST 4', text: 'Bạn số một cần thêm mấy để tạo thành mười?' },
@@ -628,7 +663,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
 
               {/* Instructions for Parent / Teacher */}
               <p className="text-[11px] text-slate-500 font-bold bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                💡 Hệ thống ưu tiên giọng đọc tiếng Việt chất lượng cao. Nếu chạy trên Google AI Studio Preview, Local hoặc Netlify, ứng dụng tự động nhận diện và chuyển đổi mượt mà giữa Cloud TTS và Browser Web Speech API mà không hiển thị lỗi gián đoạn cho trẻ.
+                💡 Ứng dụng đọc bằng giọng tiếng Việt có sẵn trên thiết bị, không cần mạng và không tốn phí. Nếu không nghe thấy, hãy cài giọng tiếng Việt trong phần Cài đặt của máy (iPad: Trợ năng → Nội dung được đọc → Giọng nói → Tiếng Việt).
               </p>
             </div>
 
@@ -817,7 +852,7 @@ export const ParentCornerScreen: React.FC<ParentCornerScreenProps> = ({
               </div>
               <div className="flex items-center gap-2 text-rose-800">
                 <span>•</span>
-                <span>Vị trí Thỏ Bông: <strong>Thế giới 1 – Bài 1</strong></span>
+                <span>Vị trí của bé: <strong>Thế giới 1 – Bài 1</strong></span>
               </div>
               <div className="flex items-center gap-2 text-rose-800">
                 <span>•</span>

@@ -5,7 +5,7 @@ import { generateQuestion } from '../utils/questionGenerator';
 import { recordAnswerResult } from '../utils/storage';
 import { sound } from '../utils/sound';
 import { mathExpressionToSpeech } from '../utils/speechService';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { HeroCharacter } from '../components/HeroCharacter';
 import { VisualCounters } from '../components/VisualCounters';
 import { TenFrame } from '../components/TenFrame';
 import { SuccessModal } from '../components/SuccessModal';
@@ -46,7 +46,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
 
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [bunnySpeech, setBunnySpeech] = useState<string>('Thử thách 10 câu bắt đầu! Con hãy làm thật cẩn thận nhé!');
-  const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'cheer' | 'thinking'>('idle');
+  const [bunnyMood, setHeroMood] = useState<'idle' | 'happy' | 'cheer' | 'thinking'>('idle');
   const [showDoneModal, setShowDoneModal] = useState<boolean>(false);
 
   // Auto speak question when loaded
@@ -83,7 +83,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
 
     setCurrentIdx(nextIndex);
     setSelectedChoice(null);
-    setBunnyMood('idle');
+    setHeroMood('idle');
     const randomWorld = CHALLENGE_WORLDS[Math.floor(Math.random() * CHALLENGE_WORLDS.length)];
     const nextQ = generateQuestion(randomWorld);
     setQuestion(nextQ);
@@ -99,7 +99,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
 
     if (isCorrect) {
       sound.playSuccess();
-      setBunnyMood('cheer');
+      setHeroMood('cheer');
       const praise = sound.speakRandomPraise({
         questionId: `challenge-${question.id}`,
       });
@@ -115,7 +115,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
       }, 1200);
     } else {
       sound.playGentleRetry();
-      setBunnyMood('thinking');
+      setHeroMood('thinking');
       const gentle = sound.speakGentleRetry({
         questionId: `challenge-${question.id}`,
       });
@@ -182,7 +182,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center my-2">
-        <BunnyCharacter
+        <HeroCharacter
           mood={bunnyMood}
           speechText={bunnySpeech}
           size="md"

@@ -61,7 +61,7 @@ class SoundService {
   }
 
   public speak(text: string, options?: SpeechRequestOptions) {
-    speechService.speak(text, options);
+    return speechService.speakScoped(text, options);
   }
 
   public speakQuestion(
@@ -70,6 +70,10 @@ class SoundService {
     options?: Omit<SpeechRequestOptions, 'delayMs' | 'eventType'>
   ): () => void {
     return speechService.speakQuestion(prompt, delayMs, options);
+  }
+
+  public replayQuestion(prompt: string, questionId: string): () => void {
+    return speechService.replayQuestion(prompt, questionId);
   }
 
   public speakRandomPraise(options?: Omit<SpeechRequestOptions, 'eventType'>): string {

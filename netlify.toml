@@ -1,13 +1,20 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "24"
+  NPM_VERSION = "11.19.0"
+
+[functions]
+  node_bundler = "esbuild"
 
 # Proxy /api requests to Netlify Functions
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+  force = true
 
 # SPA fallback rule for React
 [[redirects]]

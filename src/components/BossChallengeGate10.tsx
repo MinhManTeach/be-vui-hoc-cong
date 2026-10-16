@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Volume2, Sparkles, Check, ArrowRight } from 'lucide-react';
 import { sound } from '../utils/sound';
-import { BunnyCharacter } from './BunnyCharacter';
+import { HeroCharacter } from './HeroCharacter';
 
 interface BossChallengeGate10Props {
   onComplete: (earnedStars: number) => void;
@@ -174,13 +174,13 @@ export const BossChallengeGate10: React.FC<BossChallengeGate10Props> = ({
             <div className="my-auto flex flex-col items-center animate-bounce">
               <div className="text-6xl mb-2">🏰✨</div>
               <div className="text-2xl font-black text-amber-300">CỔNG LÂU ĐÀI ĐÃ MỞ!</div>
-              <div className="text-sm font-bold text-emerald-300">Thỏ Bông đã nhận được Huy Hiệu Số 10!</div>
+              <div className="text-sm font-bold text-emerald-300">Con đã nhận được Huy Hiệu Số 10!</div>
             </div>
           )}
 
           {/* Bunny Character in scene */}
           <div className="absolute bottom-2 right-4">
-            <BunnyCharacter
+            <HeroCharacter
               mood={gateOpen ? 'celebrate' : 'happy'}
               size="sm"
               showSpeechBubble={false}

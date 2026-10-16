@@ -2,13 +2,18 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Volume2, Lightbulb, Sparkles } from 'lucide-react';
 import { BunnyAccessory, Question, UserProgress, WorldId } from '../types/math';
 import { PlushFriend } from '../types/plush';
+import { QuestionSession } from '../utils/questionSession';
 import { generateQuestion } from '../utils/questionGenerator';
+import { REWARDS_CATALOG } from '../utils/rewards';
 import { ALL_WORLDS, recordAnswerResult, recordLevelCompletion, WorldConfig } from '../utils/storage';
 import { sound } from '../utils/sound';
-import { mathExpressionToSpeech, speechService } from '../utils/speechService';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { speechService } from '../utils/speechService';
+import { useSpeechAvailability } from '../services/speech/useSpeechAvailability';
+import { CompanionRenderer } from '../components/plush/CompanionRenderer';
+import { resolveCompanion, reactionFor } from '../utils/companion';
 import { VisualCounters } from '../components/VisualCounters';
 import { InteractiveToyTenFrame } from '../components/InteractiveToyTenFrame';
+import { activateTenFrameHint, isTenFrameHintActive, tenFrameHintPlan } from '../utils/tenFrameHint';
 import { ToyAnswerBlock } from '../components/ToyAnswerBlock';
 import { VictoryScreen } from '../components/VictoryScreen';
 import { HintModal } from '../components/HintModal';
@@ -31,6 +36,8 @@ interface GameScreenProps {
   onNextLevel: (nextLevel: number) => void;
   onToggleSound: () => void;
   onPlushUnlocked?: (friend: PlushFriend) => void;
+  /** The last level of a world is its final challenge; finishing it completes the world. */
+  onWorldComplete?: () => void;
 }
 
 const QUESTIONS_PER_LEVEL = 5;
@@ -44,19 +51,25 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   onNextLevel,
   onToggleSound,
   onPlushUnlocked,
+  onWorldComplete,
 }) => {
+  const voiceAvailability = useSpeechAvailability(progress.speechEnabled);
   const worldConfig: WorldConfig = ALL_WORLDS.find((w) => w.id === worldId) || ALL_WORLDS[0];
 
   const [question, setQuestion] = useState<Question>(() => generateQuestion(worldId));
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [wrongAttempts, setWrongAttempts] = useState<number>(0);
   const [bunnySpeech, setBunnySpeech] = useState<string>('Con hãy quan sát và chọn đáp án nhé!');
-  const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'celebrate' | 'thinking' | 'wave' | 'pointing'>('thinking');
-  const speechCancelRef = useRef<(() => void) | null>(null);
+  const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'celebrate' | 'thinking' | 'wave' | 'pointing' | 'encourage'>('thinking');
+  const sessionRef = useRef(new QuestionSession());
+  const session = sessionRef.current;
 
   // Level session counters
   const [levelQuestionIndex, setLevelQuestionIndex] = useState<number>(1);
   const [levelCorrectCount, setLevelCorrectCount] = useState<number>(0);
+  // Stars reflect answers right on the first try; every question is eventually answered correctly.
+  const [firstTryCount, setFirstTryCount] = useState<number>(0);
+  const lastPromptRef = useRef<string>('');
   const [levelXpEarned, setLevelXpEarned] = useState<number>(0);
   const [maxComboInLevel, setMaxComboInLevel] = useState<number>(0);
   const [currentLevelStars, setCurrentLevelStars] = useState<number>(0);
@@ -65,13 +78,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [showXpPop, setShowXpPop] = useState<boolean>(false);
   const [isWobbling, setIsWobbling] = useState<boolean>(false);
   const [isFillingTenFrame, setIsFillingTenFrame] = useState<boolean>(false);
-  const [isHighlightingEmptySlots, setIsHighlightingEmptySlots] = useState<boolean>(false);
+  const [hintQuestionKey, setHintQuestionKey] = useState<string | null>(null);
 
   // Interactive World 2 Merge state
   const [isMerged, setIsMerged] = useState<boolean>(false);
 
   // Interactive World 6 Steps
   const [over10Step, setOver10Step] = useState<1 | 2 | 3>(1);
+  const currentHintKey = `${question.id}:${over10Step}`;
+  const isHighlightingEmptySlots = isTenFrameHintActive(hintQuestionKey, currentHintKey);
+  const tenFramePlan = tenFrameHintPlan(question, over10Step);
 
   // Modals & Screens
   const [showVictoryScreen, setShowVictoryScreen] = useState<boolean>(false);
@@ -81,10 +97,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   // Initialize question
   const initQuestion = useCallback((wId: WorldId) => {
-    sound.cancelSpeech();
-    if (speechCancelRef.current) speechCancelRef.current();
+    session.begin();
 
-    const nextQ = generateQuestion(wId);
+    // Never show the exact same question twice in a row.
+    let nextQ = generateQuestion(wId);
+    for (let tries = 0; tries < 8 && `${nextQ.prompt}|${nextQ.itemTheme}` === lastPromptRef.current; tries++) nextQ = generateQuestion(wId);
+    lastPromptRef.current = `${nextQ.prompt}|${nextQ.itemTheme}`;
     setQuestion(nextQ);
     setSelectedAnswer(null);
     setWrongAttempts(0);
@@ -94,7 +112,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setShowXpPop(false);
     setIsWobbling(false);
     setIsFillingTenFrame(false);
-    setIsHighlightingEmptySlots(false);
+    setHintQuestionKey(null);
 
     let initialSpeech = 'Con hãy đếm và chọn đáp án đúng nhé!';
     if (wId === 'world_2_merge') initialSpeech = 'Hãy bấm "Gộp Lại" để xem có tất cả bao nhiêu nhé!';
@@ -105,46 +123,54 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setBunnySpeech(initialSpeech);
 
     // Auto-read question in Vietnamese after 400ms delay for preschoolers
-    speechCancelRef.current = sound.speakQuestion(nextQ.prompt, 400, {
-      questionId: `${wId}-${nextQ.id}`,
+    session.once('QUESTION_CHANGED', () => {
+      session.ownSpeech(sound.speakQuestion(nextQ.prompt, 400, {
+        questionId: `${wId}-${nextQ.id}`,
+      }));
     });
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     initQuestion(worldId);
     setLevelQuestionIndex(1);
     setLevelCorrectCount(0);
+    setFirstTryCount(0);
+    setNewlyWonReward(null);
     setLevelXpEarned(0);
     setMaxComboInLevel(0);
     setCurrentLevelStars(0);
     setShowVictoryScreen(false);
 
     return () => {
-      sound.cancelSpeech();
-      if (speechCancelRef.current) speechCancelRef.current();
+      session.dispose();
     };
   }, [worldId, levelNumber, initQuestion]);
 
+  const speakEvent = (event: string, text: string) => {
+    session.once(event, () => session.ownSpeech(sound.speak(text, {
+      questionId: `${worldId}-${question.id}`,
+      eventType: event === 'ANSWER_CORRECT' ? 'ANSWER_CORRECT'
+        : event.startsWith('ANSWER_WRONG') ? 'ANSWER_WRONG' : 'SYSTEM',
+    })));
+  };
+
   const handleReReadQuestion = () => {
     sound.playTap();
-    sound.speak(mathExpressionToSpeech(question.prompt), {
-      eventType: 'REPLAY',
-      questionId: `${worldId}-${question.id}`,
-      forceReplay: true,
-    });
+    session.ownSpeech(sound.replayQuestion(question.prompt, `${worldId}-${question.id}`));
   };
 
   const handleTriggerVisualHint = () => {
     sound.playTap();
-    setIsHighlightingEmptySlots(true);
+    setHintQuestionKey(current => activateTenFrameHint(current, currentHintKey));
     setBunnyMood('pointing');
-    setBunnySpeech('Con thử đếm những ô còn trống nhấp nháy nhé!');
-    sound.speak('Con thử đếm những ô còn trống nhấp nháy nhé!');
+    const hintText = tenFramePlan?.instruction ?? question.hintExplanation ?? 'Con hãy quan sát các hình để đếm nhé!';
+    setBunnySpeech(hintText);
+    speakEvent(`HINT:${over10Step}`, hintText);
   };
 
   // Handle Answer Selection
   const handleSelectChoice = (choice: number) => {
-    if (selectedAnswer !== null && selectedAnswer === choice) return;
+    if (isPaused || showVictoryScreen || !session.tryAnswer()) return;
     sound.playTap();
     setSelectedAnswer(choice);
 
@@ -156,26 +182,29 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           sound.playXp();
           setBunnyMood('happy');
           setBunnySpeech(`Chính xác! ${question.operandA} + ${choice} = 10! Giờ tách ${question.operandB} nhé!`);
-          sound.speak(`Chính xác! ${question.operandA} cộng ${choice} bằng mười! Giờ tách số ${question.operandB} nhé!`);
-          setTimeout(() => {
+          speakEvent('MAKE_TEN_CORRECT', `Chính xác! ${question.operandA} cộng ${choice} bằng mười! Giờ tách số ${question.operandB} nhé!`);
+          session.schedule(() => {
             setOver10Step(2);
             setSelectedAnswer(null);
+            session.releaseAnswer();
           }, 1300);
         } else {
           sound.playGentleRetry();
-          setBunnyMood('thinking');
+          setBunnyMood('encourage');
           setIsWobbling(true);
           const attempts = wrongAttempts + 1;
           setWrongAttempts(attempts);
-          const gentleText = sound.speakGentleRetry();
+          const gentleText = speechService.getRandomGentlePhrase();
+          speakEvent(`MAKE_TEN_WRONG_${attempts}`, gentleText);
           setBunnySpeech(gentleText);
-          setTimeout(() => {
+          session.schedule(() => {
             setIsWobbling(false);
             setSelectedAnswer(null);
+            session.releaseAnswer();
           }, 700);
 
           if (attempts >= 2) {
-            setTimeout(() => {
+            session.schedule(() => {
               handleTriggerVisualHint();
             }, 800);
           }
@@ -191,7 +220,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       sound.playSuccess();
       sound.playStar();
       sound.playXp();
-      setBunnyMood('celebrate');
+      setBunnyMood('happy');
       setShowXpPop(true);
       setIsFillingTenFrame(true);
 
@@ -201,10 +230,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           : speechService.getRandomPraisePhrase();
 
       setBunnySpeech(reinforcementText);
-      sound.speak(reinforcementText, {
-        eventType: 'ANSWER_CORRECT',
-        questionId: `${worldId}-${question.id}`,
-      });
+      speakEvent('ANSWER_CORRECT', reinforcementText);
 
       // Record answer result
       const result = recordAnswerResult(progress, worldId, true);
@@ -219,59 +245,63 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         setMaxComboInLevel(currentStreak);
       }
 
-      // Check star threshold during session
-      const calculatedStars = newCorrect >= 5 ? 3 : newCorrect >= 4 ? 2 : newCorrect >= 1 ? 1 : 0;
+      // 5 first-try answers = 3 stars, 3–4 = 2 stars, otherwise 1 star.
+      const newFirstTry = firstTryCount + (wrongAttempts === 0 ? 1 : 0);
+      setFirstTryCount(newFirstTry);
+      const calculatedStars = newFirstTry >= QUESTIONS_PER_LEVEL ? 3 : newFirstTry >= 3 ? 2 : 1;
       setCurrentLevelStars(calculatedStars);
 
       // Check if level session (5 questions) is completed
       if (levelQuestionIndex >= QUESTIONS_PER_LEVEL) {
-        const earnedFinalStars = Math.max(1, calculatedStars);
+        const isFinalLevel = levelNumber >= worldConfig.totalLevels;
         const compResult = recordLevelCompletion(
           result.updatedProgress,
           worldId,
           levelNumber,
-          earnedFinalStars
+          calculatedStars,
+          isFinalLevel
         );
         onUpdateProgress(compResult.updatedProgress);
+        setNewlyWonReward(REWARDS_CATALOG.find(item => item.id === compResult.newlyUnlockedReward) ?? null);
 
         if (compResult.newlyUnlockedPlush) {
           onPlushUnlocked?.(compResult.newlyUnlockedPlush);
         }
 
-        setTimeout(() => {
+        session.schedule(() => {
           setShowVictoryScreen(true);
         }, 1300);
       } else {
         // Advance to next question automatically after 1100ms
-        setTimeout(() => {
+        session.schedule(() => {
           setLevelQuestionIndex((prev) => prev + 1);
           initQuestion(worldId);
         }, 1200);
       }
     } else {
       sound.playGentleRetry();
-      setBunnyMood('thinking');
+      setBunnyMood('encourage');
       setIsWobbling(true);
 
       const newAttempts = wrongAttempts + 1;
       setWrongAttempts(newAttempts);
 
-      const gentle = sound.speakGentleRetry({
-        questionId: `${worldId}-${question.id}`,
-      });
+      const gentle = speechService.getRandomGentlePhrase();
+      speakEvent(`ANSWER_WRONG_${newAttempts}`, gentle);
       setBunnySpeech(gentle);
 
       const result = recordAnswerResult(progress, worldId, false);
       onUpdateProgress(result.updatedProgress);
 
-      setTimeout(() => {
+      session.schedule(() => {
         setIsWobbling(false);
         setSelectedAnswer(null);
+        session.releaseAnswer();
       }, 700);
 
       // After 2 incorrect attempts, automatically activate visual hint!
       if (newAttempts >= 2) {
-        setTimeout(() => {
+        session.schedule(() => {
           handleTriggerVisualHint();
         }, 800);
       }
@@ -280,8 +310,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handleNextLevelClick = () => {
     setShowVictoryScreen(false);
-    const nextLvl = levelNumber < worldConfig.totalLevels ? levelNumber + 1 : 1;
-    onNextLevel(nextLvl);
+    if (levelNumber >= worldConfig.totalLevels) {
+      onWorldComplete ? onWorldComplete() : onGoToMap();
+      return;
+    }
+    onNextLevel(levelNumber + 1);
   };
 
   const handleReplayClick = () => {
@@ -289,6 +322,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setIsPaused(false);
     setLevelQuestionIndex(1);
     setLevelCorrectCount(0);
+    setFirstTryCount(0);
+    setNewlyWonReward(null);
     setLevelXpEarned(0);
     setCurrentLevelStars(0);
     initQuestion(worldId);
@@ -352,11 +387,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleReReadQuestion}
+              disabled={!voiceAvailability.canRead}
+              aria-label={voiceAvailability.canRead ? 'Đọc lại câu hỏi' : voiceAvailability.message}
               className="p-2 sm:px-3 sm:py-2 bg-white/95 hover:bg-amber-100 text-amber-950 rounded-2xl shadow-md border-3 border-amber-400 active:scale-95 transition flex items-center gap-1 font-black text-xs cursor-pointer"
-              title="Đọc lại câu hỏi"
+              title={voiceAvailability.canRead ? 'Đọc lại câu hỏi' : voiceAvailability.message}
             >
               <Volume2 className="w-4 h-4 text-amber-900 fill-amber-500" />
-              <span className="hidden sm:inline">Đọc lại</span>
+              <span className="hidden sm:inline">{voiceAvailability.canRead ? 'Đọc lại' : voiceAvailability.message}</span>
             </button>
 
             <button
@@ -405,6 +442,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {worldId === 'world_4_make_10' && (
             <div className="w-full flex justify-center my-2">
               <InteractiveToyTenFrame
+                key={question.id}
+                additionCount={tenFramePlan?.additionCount}
+                label={tenFramePlan?.label}
+                hintInstruction={tenFramePlan?.instruction}
                 initialCountA={question.operandA}
                 targetTotal={10}
                 highlightEmptySlots={isHighlightingEmptySlots}
@@ -420,6 +461,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {worldId === 'world_3_add_10' && (
             <div className="w-full flex justify-center my-2">
               <InteractiveToyTenFrame
+                key={question.id}
+                additionCount={tenFramePlan?.additionCount}
+                label={tenFramePlan?.label}
+                hintInstruction={tenFramePlan?.instruction}
+                highlightEmptySlots={isHighlightingEmptySlots}
                 initialCountA={question.operandA}
                 targetTotal={10}
                 itemIcon="⭐"
@@ -483,7 +529,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     sound.playTap();
                     setIsMerged(true);
                     sound.playStar();
-                    sound.speak(`Đã gộp lại! Có ${question.operandA} thêm ${question.operandB}. Có tất cả bao nhiêu?`);
+                    speakEvent('MERGE', `Đã gộp lại! Có ${question.operandA} thêm ${question.operandB}. Có tất cả bao nhiêu?`);
                   }}
                   className="mt-3 py-2.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-base shadow-md active:scale-95 transition flex items-center gap-2 border-b-4 border-amber-600 cursor-pointer"
                 >
@@ -523,8 +569,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <p className="font-extrabold text-sm text-slate-800">
                     {question.operandA} cần thêm mấy để đủ 10?
                   </p>
+                  <p className="mt-1 text-sm font-semibold text-indigo-900">
+                    Con chọn số cần thêm để đủ 10, chưa chọn kết quả {question.operandA} + {question.operandB} nhé!
+                  </p>
                   <div className="my-2">
                     <InteractiveToyTenFrame
+                      key={`${question.id}:${over10Step}`}
+                      additionCount={tenFramePlan?.additionCount}
+                      label={tenFramePlan?.label}
+                      hintInstruction={tenFramePlan?.instruction}
+                      highlightEmptySlots={isHighlightingEmptySlots}
                       initialCountA={question.operandA}
                       targetTotal={10}
                       className="w-full max-w-sm"
@@ -536,7 +590,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               {over10Step === 2 && (
                 <div className="text-center animate-fade-in">
                   <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full font-black text-xs mb-2">
-                    BƯỚC 2: TÁCH PHẦN CÒN LẠI
+                    BƯỚC 2: CHỌN KẾT QUẢ
                   </span>
                   <p className="font-extrabold text-sm text-slate-800">
                     Lấy {question.needToMake10} từ {question.operandB}, còn lại {question.remainder}.
@@ -544,36 +598,51 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <div className="mt-2 text-xl font-black text-indigo-900">
                     10 + {question.remainder} = ?
                   </div>
+                  <p className="mt-1 text-sm font-semibold text-indigo-900">
+                    Bây giờ con chọn kết quả của {question.operandA} + {question.operandB} ở các ô bên dưới nhé!
+                  </p>
                 </div>
               )}
+              <details key={question.id} className="mt-2 w-full rounded-2xl bg-indigo-50 p-3 text-left text-sm text-indigo-950">
+                <summary className="cursor-pointer font-extrabold rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                  Ba mẹ hướng dẫn: Vì sao chọn số nhỏ trước?
+                </summary>
+                <div className="mt-2 space-y-2 leading-relaxed">
+                  <p>
+                    Bài {question.operandA} + {question.operandB} được làm qua hai bước: tạo thành 10 trước, rồi cộng phần còn lại.
+                    Các ô 1, 2, 3, 4 ở bước đầu là số cần thêm, không phải kết quả phép cộng.
+                  </p>
+                  <ol className="list-decimal space-y-2 pl-5">
+                    <li>
+                      <strong>Bù cho đủ 10:</strong> Ba mẹ hỏi “{question.operandA} cần thêm mấy để đủ 10?” và cùng bé đếm ô trống.
+                      Bé chọn {question.needToMake10}, vì {question.operandA} + {question.needToMake10} = 10.
+                    </li>
+                    <li>
+                      <strong>Cộng phần còn lại:</strong> Lấy {question.needToMake10} từ {question.operandB}, còn {question.remainder}.
+                      Ta có 10 + {question.remainder} = {question.answer}. Lúc này bé mới chọn {question.answer} làm kết quả của {question.operandA} + {question.operandB}.
+                    </li>
+                  </ol>
+                  <p>Chọn đúng ở bước 1, trò chơi sẽ tự chuyển sang bước 2. Ba mẹ hướng dẫn bé từng bước, không cần yêu cầu bé trả lời tổng ngay từ đầu.</p>
+                </div>
+              </details>
             </div>
           )}
         </div>
 
         {/* Mascot & Speech Bubble Section */}
         <div className="w-full max-w-xl flex items-center justify-center gap-3 my-2">
-          {/* Prominent Sized Thỏ Bông Mascot */}
+          {/* Prominent hero */}
           <div className="shrink-0 transform transition-transform hover:scale-105">
-            <BunnyCharacter
-              mood={bunnyMood}
-              size="lg"
-              showSpeechBubble={false}
-              hat={progress.equippedAccessories.hat}
-              glasses={progress.equippedAccessories.glasses}
-              shirt={progress.equippedAccessories.shirt}
-              backpack={progress.equippedAccessories.backpack}
-              item={progress.equippedAccessories.item}
-              badge={progress.equippedAccessories.badge}
-            />
+            <CompanionRenderer companionId={resolveCompanion(progress)} size={130} showBadge={false} canSpeakOnClick={false} reaction={showVictoryScreen ? reactionFor('complete') : bunnyMood === 'happy' ? reactionFor('correct') : bunnyMood === 'encourage' ? reactionFor('wrong') : bunnyMood === 'pointing' ? reactionFor('hint') : reactionFor('question')} accessories={progress.equippedAccessories} />
           </div>
 
-          {/* Speech Bubble right beside Thỏ Bông */}
-          <div className="flex-1 bg-white/95 backdrop-blur-md border-3 border-amber-400 rounded-3xl p-3.5 shadow-xl relative animate-bounce-subtle">
+          {/* Speech Bubble right beside the hero */}
+          <div className="flex-1 bg-white/95 backdrop-blur-md border-3 border-amber-400 rounded-3xl p-3.5 shadow-xl relative companion-speech">
             {/* Bubble Tail pointing to Bunny */}
             <div className="absolute top-1/2 -left-2.5 -translate-y-1/2 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-white" />
             <div className="absolute top-1/2 -left-3.5 -translate-y-1/2 w-0 h-0 border-y-9 border-y-transparent border-r-9 border-r-amber-400 -z-10" />
 
-            <p className="text-xs sm:text-sm font-black text-slate-800 leading-tight">
+            <p className="text-base sm:text-lg font-black text-slate-800 leading-tight">
               {bunnySpeech}
             </p>
           </div>
@@ -600,6 +669,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   isSelected={isSelected}
                   isCorrect={isCorrect}
                   isWobbling={isWobbling && isSelected}
+                  disabled={selectedAnswer !== null || isPaused || showVictoryScreen}
                   onClick={() => handleSelectChoice(choice)}
                 />
               );
@@ -644,7 +714,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* Victory Screen on Level Complete */}
       {showVictoryScreen && (
         <VictoryScreen
-          stars={currentLevelStars || 3}
+          stars={currentLevelStars || 1}
           xpEarned={levelXpEarned}
           bestCombo={maxComboInLevel}
           newReward={newlyWonReward}
@@ -656,7 +726,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             sound.cancelSpeech();
             onGoToMap();
           }}
-          companionId={progress.selectedCompanionId}
+          companionId={resolveCompanion(progress)}
           hat={progress.equippedAccessories.hat}
           glasses={progress.equippedAccessories.glasses}
           shirt={progress.equippedAccessories.shirt}

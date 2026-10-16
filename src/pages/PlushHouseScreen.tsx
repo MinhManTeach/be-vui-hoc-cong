@@ -14,6 +14,8 @@ import { UserProgress } from '../types/math';
 import { ALL_PLUSH_FRIENDS, PLUSH_COLLECTION_SETS } from '../data/plushFriends';
 import { PlushFriend } from '../types/plush';
 import { PlushFriendRenderer } from '../components/plush/PlushFriendRenderer';
+import { CompanionRenderer } from '../components/plush/CompanionRenderer';
+import { selectCompanion, resolveCompanion, friendInteraction, type FriendInteraction } from '../utils/companion';
 import { sound } from '../utils/sound';
 
 interface PlushHouseScreenProps {
@@ -30,9 +32,10 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
   const [activeTab, setActiveTab] = useState<'room' | 'album'>('room');
   const [selectedFriend, setSelectedFriend] = useState<PlushFriend | null>(null);
   const [miniInteractionDone, setMiniInteractionDone] = useState<boolean>(false);
+  const [interaction,setInteraction]=useState<FriendInteraction|null>(null);
 
   const unlockedList = progress.unlockedPlushFriends || [];
-  const selectedCompanionId = progress.selectedCompanionId;
+  const selectedCompanionId = resolveCompanion(progress);
 
   // Check if a plush friend is unlocked
   const isPlushUnlocked = (friend: PlushFriend) => {
@@ -51,6 +54,7 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
     if (unlocked) {
       setSelectedFriend(friend);
       setMiniInteractionDone(false);
+      setInteraction(null);
       // Speak unique greeting in Vietnamese (Single SpeechManager, never overlap)
       sound.speak(friend.greeting, {
         eventType: 'UI_CLICK',
@@ -70,17 +74,11 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
 
   // Set as Companion
   const handleSelectCompanion = (friend: PlushFriend) => {
+    const updated=selectCompanion(progress,friend.id);
+    if(updated===progress)return;
     sound.playSuccess();
-    sound.playStar();
-
-    const isCurrent = selectedCompanionId === friend.id;
-    const newCompanionId = isCurrent ? null : friend.id;
-
-    const updated: UserProgress = {
-      ...progress,
-      selectedCompanionId: newCompanionId,
-    };
     onUpdateProgress(updated);
+    const newCompanionId=updated.selectedCompanionId;
 
     if (newCompanionId) {
       sound.speak(
@@ -94,23 +92,13 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
   };
 
   // Mini Play Interaction with plush friend
-  const handlePlayMiniInteraction = (friend: PlushFriend) => {
-    sound.playStar();
+  const handlePlayMiniInteraction = () => {
     setMiniInteractionDone(true);
-
-    const cheers = [
-      `Cảm ơn con nhiều lắm! ${friend.name} vui ơi là vui! ❤️`,
-      `${friend.name} cảm thấy thật hạnh phúc khi được chơi cùng con! ✨`,
-    ];
-    const cheer = cheers[Math.floor(Math.random() * cheers.length)];
-    sound.speak(cheer, {
-      eventType: 'UI_CLICK',
-      forceReplay: true,
-    });
+    setInteraction(null);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-100 via-amber-50 to-pink-100 text-slate-800 flex flex-col justify-between pb-8 select-none relative overflow-x-hidden">
+    <div className="plush-house min-h-screen bg-gradient-to-b from-sky-100 via-amber-50 to-pink-100 text-slate-800 flex flex-col justify-between pb-8 select-none relative overflow-x-hidden">
       {/* 1. TOP HEADER */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b-4 border-amber-300 px-4 sm:px-6 py-3 shadow-md flex items-center justify-between">
         <button
@@ -118,7 +106,7 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
             sound.playTap();
             onBack();
           }}
-          className="p-2 sm:px-3.5 sm:py-2 rounded-2xl bg-amber-100 hover:bg-amber-200 border-2 border-amber-300 text-amber-900 font-extrabold text-sm flex items-center gap-1.5 active:scale-95 transition shadow-sm cursor-pointer"
+          aria-label="Trở về bản đồ" className="min-h-11 min-w-11 p-2 sm:px-3.5 sm:py-2 rounded-2xl bg-amber-100 hover:bg-amber-200 border-2 border-amber-300 text-amber-900 font-extrabold text-sm flex items-center gap-1.5 active:scale-95 transition shadow-sm cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
           <span className="hidden sm:inline">Trở về</span>
@@ -253,7 +241,8 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
                   }}
                   className="absolute -translate-x-1/2 -translate-y-1/2 z-20 group"
                 >
-                  <div
+                  <button
+                    aria-label={unlocked ? friend.name : `Bạn nhỏ chưa mở khóa ở ${friend.worldName}`}
                     onClick={() => handlePlushClick(friend)}
                     className="relative cursor-pointer transition-all transform hover:scale-110 active:scale-95"
                   >
@@ -261,7 +250,7 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
                     {isSelectedCompanion && (
                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded-full shadow-md border border-white flex items-center gap-0.5 animate-bounce z-30 whitespace-nowrap">
                         <span>⭐</span>
-                        <span>Đồng hành</span>
+                        <span>Đang đồng hành</span>
                       </div>
                     )}
 
@@ -277,7 +266,7 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
                     <div className="mt-1 px-2 py-0.5 rounded-full bg-white/95 border border-slate-200 shadow-xs text-[10px] font-black text-slate-800 text-center whitespace-nowrap">
                       {unlocked ? friend.name : '🔒 Bạn Nhỏ'}
                     </div>
-                  </div>
+                  </button>
                 </div>
               );
             })}
@@ -392,22 +381,18 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
       {/* 5. MODAL / BOTTOM SHEET: PLUSH DETAIL & COMPANION SELECTION */}
       {selectedFriend && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full border-4 border-amber-300 shadow-2xl text-center relative animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full border-4 border-amber-300 shadow-2xl text-center relative animate-fade-in max-h-[90dvh] overflow-y-auto">
             {/* Close button */}
             <button
-              onClick={() => setSelectedFriend(null)}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-black flex items-center justify-center cursor-pointer transition"
+              aria-label="Đóng bạn nhỏ" onClick={() => setSelectedFriend(null)}
+              className="absolute top-4 right-4 w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-black flex items-center justify-center cursor-pointer transition"
             >
               ✕
             </button>
 
             {/* Big Plush Display */}
             <div className="flex justify-center mb-2">
-              <PlushFriendRenderer
-                plushId={selectedFriend.id}
-                size={160}
-                animationState="happy"
-              />
+              <CompanionRenderer companionId={selectedFriend.id} size={160} showBadge={false} canSpeakOnClick={false} reaction={interaction ? friendInteraction(interaction).reaction : 'IDLE'}/>
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
@@ -420,7 +405,7 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
               {selectedFriend.personality}
             </p>
 
-            {/* Favorite Item & Spot Info */}
+            {miniInteractionDone && <section aria-label="Chơi cùng bạn"><div className="friend-play-actions">{(['PET','HIGH_FIVE','HELLO'] as const).map(action=><button key={action} aria-pressed={interaction===action} onClick={()=>setInteraction(v=>v===action?v:action)}>{action==='PET'?'♥ Xoa đầu':action==='HIGH_FIVE'?'✋ Đập tay':'👋 Chào bạn'}</button>)}</div><p className="companion-bubble" role="status">{interaction?friendInteraction(interaction).symbol+' '+friendInteraction(interaction).text:'Chạm để chơi cùng mình nhé!'}</p></section>}
             <div className="bg-amber-50 rounded-2xl p-3 border border-amber-200 text-xs font-bold text-slate-700 space-y-1 mb-4 text-left">
               <div>
                 <span className="text-amber-900 font-black">Món yêu thích:</span>{' '}
@@ -436,7 +421,7 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
             <div className="flex flex-col sm:flex-row gap-2.5">
               {/* Play / Feed Mini Interaction Button */}
               <button
-                onClick={() => handlePlayMiniInteraction(selectedFriend)}
+                onClick={handlePlayMiniInteraction}
                 className="flex-1 py-3 px-3 bg-pink-100 hover:bg-pink-200 text-pink-900 font-black rounded-2xl transition border-2 border-pink-300 flex items-center justify-center gap-1.5 cursor-pointer text-xs sm:text-sm active:scale-95"
               >
                 <Heart className="w-4 h-4 fill-pink-500 text-pink-500" />
@@ -455,8 +440,8 @@ export const PlushHouseScreen: React.FC<PlushHouseScreenProps> = ({
                 <Compass className="w-4 h-4" />
                 <span>
                   {selectedCompanionId === selectedFriend.id
-                    ? '✓ Đang Đồng Hành'
-                    : '🌟 ĐI CÙNG MÌNH'}
+                    ? '✓ Đang đồng hành'
+                    : 'Đi cùng mình'}
                 </span>
               </button>
             </div>

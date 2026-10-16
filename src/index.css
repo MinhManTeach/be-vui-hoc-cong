@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./components/plush/companion.css";
+@import "./components/tenFrameHint.css";
 
 @layer utilities {
   @keyframes float {
@@ -108,3 +110,5 @@
   -webkit-user-select: none;
   user-select: none;
 }
+
+.child-avatar{width:100%;height:100%;display:block}

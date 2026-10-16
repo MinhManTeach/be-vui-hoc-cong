@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BunnyAccessory, MiniGameId, UserProgress, WorldId } from './types/math';
 import { ALL_WORLDS, loadProgress, recordChestOpen, recordLevelCompletion, saveProgress } from './utils/storage';
 import { sound } from './utils/sound';
@@ -14,7 +14,7 @@ import { AdventureMapScreen } from './pages/AdventureMapScreen';
 import { WorldLevelTrailScreen } from './pages/WorldLevelTrailScreen';
 import { GameScreen } from './pages/GameScreen';
 import { PlushHouseScreen } from './pages/PlushHouseScreen';
-import { WardrobeScreen } from './pages/WardrobeScreen';
+import { ShopScreen } from './pages/ShopScreen';
 import { MiniGamesHubScreen } from './pages/MiniGamesHubScreen';
 import { ChallengeScreen } from './pages/ChallengeScreen';
 import { ParentCornerScreen } from './pages/ParentCornerScreen';
@@ -30,13 +30,29 @@ import { BossChallengeGate10 } from './components/BossChallengeGate10';
 import { BossChallengeRocket10 } from './components/BossChallengeRocket10';
 import { RewardChestModal } from './components/RewardChestModal';
 import { WorldCompleteModal } from './components/WorldCompleteModal';
-import { ProfileModal } from './components/ProfileModal';
 import { PlushRevealModal } from './components/plush/PlushRevealModal';
 import { PlushFriend } from './types/plush';
+import { ALL_PLUSH_FRIENDS } from './data/plushFriends';
+import { resolveCompanion } from './utils/companion';
+import { pendingDecor, acknowledgeDecor } from './domain/room/room';
+import { commitRetentionUpdate } from './utils/storage';
+import { BreakTimeModal } from './components/BreakTimeModal';
+import { addPlayedMinute, grantExtraMinutes, isTimeUp, today } from './domain/playtime/playtime';
+import { deviceClock } from './domain/retention/clock';
+import { HeroAvatarContext } from './components/HeroCharacter';
+import { chooseAvatar, normalizeAvatar, updateAvatar } from './domain/avatar/avatar';
+
+const DailyAdventureScreen = lazy(() => import('./pages/DailyAdventureScreen'));
+const AvatarCreatorScreen = lazy(() => import('./pages/AvatarCreatorScreen'));
+const MyRoomScreen = lazy(() => import('./pages/MyRoomScreen'));
+const DecorReveal = lazy(() => import('./components/room/DecorReveal'));
 
 type AppScreen =
   | 'splash'
   | 'map'
+  | 'daily'
+  | 'avatar'
+  | 'room'
   | 'world_trail'
   | 'level_play'
   | 'boss_gate_10'
@@ -53,7 +69,14 @@ type AppScreen =
 
 export default function App() {
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
+  const progressRef = useRef(progress);
+  const pendingChestPlush = useRef<PlushFriend | null>(null);
+  const chestModalOpenRef = useRef(false);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('splash');
+  const [avatarReturn, setAvatarReturn] = useState<'map' | 'room'>('map');
+  const openAvatar = (back: 'map' | 'room') => { sound.cancelSpeech(); setAvatarReturn(back); setCurrentScreen('avatar'); };
+  const [roomSelection, setRoomSelection] = useState<string | undefined>();
+  const [roomSaveError, setRoomSaveError] = useState('');
   const [selectedWorldId, setSelectedWorldId] = useState<WorldId>('world_1_counting');
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(1);
 
@@ -87,7 +110,6 @@ export default function App() {
     worldId: 'world_1_counting',
   });
 
-  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
 
   // Sync audio settings
   useEffect(() => {
@@ -95,9 +117,38 @@ export default function App() {
     sound.setSpeechEnabled(progress.speechEnabled);
   }, [progress.soundEnabled, progress.soundEffectsEnabled, progress.speechEnabled]);
 
+  // Count real play minutes (screen visible, past the splash) for the parent's daily limit.
+  useEffect(() => {
+    if (currentScreen === 'splash' || currentScreen === 'parents') return;
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      const next = addPlayedMinute(progressRef.current, deviceClock.day());
+      if (saveProgress(next)) { progressRef.current = next; setProgress(next); }
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [currentScreen]);
+  const timeUp = currentScreen !== 'splash' && currentScreen !== 'parents' && isTimeUp(progress, deviceClock.day());
+
   const handleUpdateProgress = (updated: UserProgress) => {
+    // Publish reward/room state only after the existing save confirms durability.
+    if (!saveProgress(updated)) {
+      setRoomSaveError('Chưa lưu được tiến độ. Hãy tải lại trước khi tiếp tục nhé!');
+      return;
+    }
+    progressRef.current = updated;
     setProgress(updated);
-    saveProgress(updated);
+    setRoomSaveError('');
+  };
+
+  const newDecor = pendingDecor(progress);
+  const closeDecorReveal = (place: boolean) => {
+    if (!newDecor) return;
+    try {
+      const next = commitRetentionUpdate(progressRef.current, p => acknowledgeDecor(p, newDecor.id));
+      handleUpdateProgress(next);
+      setRoomSaveError('');
+      if (place) { setRoomSelection(newDecor.id); setCurrentScreen('room'); }
+    } catch { setRoomSaveError('Chưa lưu được. Hãy thử lại nhé!'); }
   };
 
   const handleToggleSound = () => {
@@ -139,7 +190,14 @@ export default function App() {
 
   const handleOpenChest = (chestId: string) => {
     sound.initCtx();
-    const res = recordChestOpen(progress, chestId);
+    if (chestModalOpenRef.current) return;
+    chestModalOpenRef.current = true;
+    const previous = progressRef.current;
+    const res = recordChestOpen(previous, chestId);
+    pendingChestPlush.current = ALL_PLUSH_FRIENDS.find(friend =>
+      res.updatedProgress.unlockedPlushFriends.includes(friend.id) &&
+      !previous.unlockedPlushFriends.includes(friend.id)
+    ) || null;
     handleUpdateProgress(res.updatedProgress);
     setActiveChestModal({
       isOpen: true,
@@ -172,7 +230,10 @@ export default function App() {
         plushFriend: compRes.newlyUnlockedPlush,
       });
     }
+    openWorldComplete();
+  };
 
+  const openWorldComplete = () => {
     // Find next world
     const worldIdx = ALL_WORLDS.findIndex((w) => w.id === selectedWorldId);
     const nextWorld = ALL_WORLDS[worldIdx + 1];
@@ -195,19 +256,19 @@ export default function App() {
     handleUpdateProgress(updated);
   };
 
-  const handleSaveProfile = (nickname: string, avatar: string) => {
-    const updated = {
-      ...progress,
-      childNickname: nickname,
-      childAvatar: avatar,
-    };
-    handleUpdateProgress(updated);
-  };
 
   const currentWorldConfig = ALL_WORLDS.find((w) => w.id === selectedWorldId) || ALL_WORLDS[0];
 
   return (
+    <HeroAvatarContext.Provider value={normalizeAvatar(progress.avatar)}>
     <div className="min-h-screen bg-amber-50 text-slate-900 font-['Nunito',sans-serif]">
+      {timeUp && (
+        <BreakTimeModal
+          limitMinutes={today(progress, deviceClock.day()).limitMinutes}
+          equipped={progress.equippedAccessories}
+          onParentExtend={() => handleUpdateProgress(grantExtraMinutes(progressRef.current, deviceClock.day()))}
+        />
+      )}
       {/* 1. Splash Screen */}
       {currentScreen === 'splash' && (
         <SplashScreen
@@ -217,11 +278,18 @@ export default function App() {
           shirt={progress.equippedAccessories.shirt}
           backpack={progress.equippedAccessories.backpack}
           item={progress.equippedAccessories.item}
-          companionId={progress.selectedCompanionId}
+          companionId={resolveCompanion(progress)}
           soundEnabled={progress.soundEffectsEnabled ?? progress.soundEnabled}
           onToggleSound={handleToggleSound}
-          childAvatar={progress.childAvatar}
+          avatar={progress.avatar}
           childNickname={progress.childNickname}
+          onPickBase={(base) => {
+            try {
+              handleUpdateProgress(commitRetentionUpdate(progress, p => updateAvatar(p, chooseAvatar(p.avatar, 'base', base))));
+            } catch {
+              // Another tab saved first; the splash keeps the current pick.
+            }
+          }}
         />
       )}
 
@@ -235,9 +303,42 @@ export default function App() {
           onOpenMiniGames={() => setCurrentScreen('minigames_hub')}
           onOpenChallenge={() => setCurrentScreen('challenge')}
           onOpenParents={() => setCurrentScreen('parents')}
-          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenProfile={() => openAvatar('map')}
           onToggleSound={handleToggleSound}
+          onOpenDaily={() => {
+            sound.initCtx();
+            sound.cancelSpeech();
+            setCurrentScreen('daily');
+          }}
+          onOpenRoom={() => { sound.cancelSpeech(); setRoomSelection(undefined); setCurrentScreen('room'); }}
         />
+      )}
+
+      {currentScreen === 'avatar' && <Suspense fallback={<p role="status">Đang mở nhân vật…</p>}><AvatarCreatorScreen progress={progress} onSaved={handleUpdateProgress} onExit={() => setCurrentScreen(avatarReturn)} /></Suspense>}
+      {currentScreen === 'room' && (
+        <Suspense fallback={<p className="p-8 text-center">Đang mở căn phòng…</p>}>
+          <MyRoomScreen onOpenAvatar={() => openAvatar('room')} progress={progress} initialDecorId={roomSelection} onSaved={handleUpdateProgress} onExit={() => setCurrentScreen('map')} />
+        </Suspense>
+      )}
+      {currentScreen === 'map' && newDecor && !activePlushReveal.isOpen && !activeChestModal.isOpen && !worldCompleteModalData.isOpen && (
+        <Suspense fallback={null}>
+          <DecorReveal decor={newDecor} onPlace={() => closeDecorReveal(true)} onLater={() => closeDecorReveal(false)} />
+        </Suspense>
+      )}
+
+      {roomSaveError && <p role="alert" className="fixed bottom-4 inset-x-4 z-[90] bg-white p-4 text-center">{roomSaveError}</p>}
+
+      {currentScreen === 'daily' && (
+        <Suspense fallback={<p className="p-8 text-center">Đang chuẩn bị chuyến đi…</p>}>
+          <DailyAdventureScreen
+            progress={progress}
+            onSaved={updated => {
+              progressRef.current = updated;
+              setProgress(updated);
+            }}
+            onExit={() => setCurrentScreen('map')}
+          />
+        </Suspense>
       )}
 
       {/* 3. World Level Trail */}
@@ -273,6 +374,10 @@ export default function App() {
               isOpen: true,
               plushFriend: friend,
             });
+          }}
+          onWorldComplete={() => {
+            setCurrentScreen('world_trail');
+            openWorldComplete();
           }}
         />
       )}
@@ -312,9 +417,9 @@ export default function App() {
         />
       )}
 
-      {/* 7. Wardrobe (Tủ đồ Thỏ Bông) */}
+      {/* 7. Wardrobe (Cửa hàng) */}
       {currentScreen === 'wardrobe' && (
-        <WardrobeScreen
+        <ShopScreen
           progress={progress}
           onUpdateProgress={handleUpdateProgress}
           onBack={() => setCurrentScreen('map')}
@@ -395,7 +500,13 @@ export default function App() {
         rewardId={activeChestModal.rewardId}
         starsBonus={activeChestModal.starsBonus}
         xpBonus={activeChestModal.xpBonus}
-        onClose={() => setActiveChestModal((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => {
+          chestModalOpenRef.current = false;
+          setActiveChestModal((prev) => ({ ...prev, isOpen: false }));
+          const friend = pendingChestPlush.current;
+          pendingChestPlush.current = null;
+          if (friend) setActivePlushReveal({ isOpen: true, plushFriend: friend });
+        }}
         onEquipNow={handleEquipAccessoryFromChest}
       />
 
@@ -418,13 +529,6 @@ export default function App() {
         />
       )}
 
-      {/* Profile Modal */}
-      <ProfileModal
-        isOpen={showProfileModal}
-        progress={progress}
-        onClose={() => setShowProfileModal(false)}
-        onSaveProfile={handleSaveProfile}
-      />
 
       {/* Plush Friend Checkpoint Reveal Modal */}
       <PlushRevealModal
@@ -451,5 +555,6 @@ export default function App() {
         item={progress.equippedAccessories.item}
       />
     </div>
+    </HeroAvatarContext.Provider>
   );
 }

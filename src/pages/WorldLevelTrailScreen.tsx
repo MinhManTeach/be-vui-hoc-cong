@@ -3,7 +3,7 @@ import { ArrowLeft, Lock, Star, Sparkles, Trophy, Play } from 'lucide-react';
 import { UserProgress, WorldId } from '../types/math';
 import { ALL_WORLDS, WorldConfig } from '../utils/storage';
 import { sound } from '../utils/sound';
-import { BunnyCharacter } from '../components/BunnyCharacter';
+import { HeroCharacter } from '../components/HeroCharacter';
 import { ALL_PLUSH_FRIENDS } from '../data/plushFriends';
 import { PlushFriendRenderer } from '../components/plush/PlushFriendRenderer';
 import { CompanionRenderer } from '../components/plush/CompanionRenderer';
@@ -145,7 +145,7 @@ export const WorldLevelTrailScreen: React.FC<WorldLevelTrailScreenProps> = ({
                 {/* Cheering Mascot & Companion beside current level */}
                 {isCurrent && (
                   <div className="absolute -left-28 sm:-left-36 bottom-0 animate-bounce-subtle pointer-events-none flex items-end gap-1 z-30">
-                    <BunnyCharacter
+                    <HeroCharacter
                       mood="happy"
                       size="sm"
                       showSpeechBubble={false}

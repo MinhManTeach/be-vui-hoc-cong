@@ -39,7 +39,7 @@ export const MiniGameRabbitCarrot: React.FC<MiniGameRabbitCarrotProps> = ({
 }) => {
   const [round, setRound] = useState<CarrotRound>(() => generateCarrotRound());
   const [bunnyMood, setBunnyMood] = useState<'idle' | 'happy' | 'cheer' | 'eating' | 'thinking'>('idle');
-  const [speech, setSpeech] = useState<string>('Thỏ Bông đói bụng quá! Cho Thỏ ăn củ cà rốt đúng nhé!');
+  const [speech, setSpeech] = useState<string>('Bạn Thỏ đói bụng quá! Cho Thỏ ăn củ cà rốt đúng nhé!');
   const [eatenCarrots, setEatenCarrots] = useState<number>(0);
   const [showHearts, setShowHearts] = useState<boolean>(false);
   const speechCancelRef = useRef<(() => void) | null>(null);
@@ -163,7 +163,7 @@ export const MiniGameRabbitCarrot: React.FC<MiniGameRabbitCarrotProps> = ({
         {/* 3 Carrots to choose */}
         <div className="w-full mt-4">
           <div className="text-center text-xs font-bold text-slate-500 mb-3">
-            👇 Bấm vào củ cà rốt có số đúng để đút cho Thỏ Bông:
+            👇 Bấm vào củ cà rốt có số đúng để đút cho bạn Thỏ:
           </div>
 
           <div className="flex items-center justify-center gap-4 sm:gap-6">

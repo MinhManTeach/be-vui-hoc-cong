@@ -2,5 +2,5 @@
   "name": "Bé Vui Học Cộng - Game Toán Mầm Non 4-6 Tuổi",
   "description": "Ứng dụng học toán vui nhộn dành cho trẻ 4-6 tuổi, học bản chất phép cộng qua đếm, gộp nhóm, tạo 10 và các trò chơi tương tác với Thỏ Bông.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

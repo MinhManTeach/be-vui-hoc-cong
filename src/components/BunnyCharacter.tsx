@@ -1,4 +1,5 @@
 import React from 'react';
+import { EquippedWearable, WearableRear } from './wardrobe/WearableArt';
 import { Volume2 } from 'lucide-react';
 import { sound } from '../utils/sound';
 
@@ -103,7 +104,7 @@ export const BunnyCharacter: React.FC<BunnyCharacterProps> = ({
       <div className={`relative ${sizeMap[size]} transition-transform duration-300 ${getAnimationClass()}`}>
         <svg
           viewBox="0 0 200 240"
-          className="w-full h-full drop-shadow-xl"
+          className="w-full h-full drop-shadow-xl overflow-visible"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
@@ -135,33 +136,8 @@ export const BunnyCharacter: React.FC<BunnyCharacterProps> = ({
             </filter>
           </defs>
 
-          {/* Yellow Backpack behind body */}
-          {(backpack === 'backpack_yellow' || !backpack) && (
-            <g transform="translate(138, 140)">
-              <rect x="0" y="0" width="34" height="42" rx="10" fill="url(#yellowBackpackGrad)" stroke="#CA8A04" strokeWidth="3" />
-              <path d="M6 10 H28" stroke="#CA8A04" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="17" cy="22" r="5" fill="#FEF08A" />
-            </g>
-          )}
-          {backpack === 'backpack_carrot' && (
-            <g transform="translate(138, 135) rotate(15)">
-              <polygon points="16,36 32,0 0,0" fill="#F97316" stroke="#C2410C" strokeWidth="2" />
-              <path d="M16 0 C16 -10 10 -12 6 -10" stroke="#22C55E" strokeWidth="3" fill="none" />
-            </g>
-          )}
-          {backpack === 'backpack_rocket' && (
-            <g transform="translate(142, 130)">
-              <rect x="0" y="8" width="22" height="34" rx="6" fill="#EF4444" stroke="#B91C1C" strokeWidth="2" />
-              <polygon points="11,0 0,8 22,8" fill="#FFFFFF" />
-              <circle cx="11" cy="22" r="4" fill="#38BDF8" />
-              <polygon points="4,42 11,52 18,42" fill="#F59E0B" />
-            </g>
-          )}
-          {backpack === 'backpack_star' && (
-            <g transform="translate(136, 138)">
-              <text x="0" y="30" fontSize="32">⭐</text>
-            </g>
-          )}
+          <EquippedWearable id={backpack} type="backpack" />
+          <WearableRear id={shirt} />
 
           {/* Ears */}
           {/* Left Ear */}
@@ -179,50 +155,7 @@ export const BunnyCharacter: React.FC<BunnyCharacterProps> = ({
           {/* Body */}
           <ellipse cx="100" cy="180" rx="58" ry="50" fill="url(#bunnyFurGrad)" stroke="#CBD5E1" strokeWidth="3.5" />
 
-          {/* Shirt / Outfit */}
-          {(shirt === 'shirt_sky' || !shirt) && (
-            <g>
-              <path d="M54 165 C54 148 146 148 146 165 C146 195 54 195 54 165 Z" fill="url(#skyShirtGrad)" stroke="#0284C7" strokeWidth="2.5" />
-              {/* Collar detail */}
-              <polygon points="100,166 90,154 110,154" fill="#E0F2FE" />
-              {/* Cute pocket */}
-              <rect x="74" y="172" width="16" height="14" rx="3" fill="#0284C7" opacity="0.4" />
-            </g>
-          )}
-          {shirt === 'shirt_stripe' && (
-            <g>
-              <path d="M54 165 C54 148 146 148 146 165 C146 195 54 195 54 165 Z" fill="#FFFFFF" stroke="#0284C7" strokeWidth="2.5" />
-              <line x1="60" y1="165" x2="140" y2="165" stroke="#0284C7" strokeWidth="4" />
-              <line x1="64" y1="175" x2="136" y2="175" stroke="#0284C7" strokeWidth="4" />
-              <line x1="72" y1="185" x2="128" y2="185" stroke="#0284C7" strokeWidth="4" />
-            </g>
-          )}
-          {shirt === 'shirt_hero' && (
-            <g>
-              {/* Red cape behind */}
-              <path d="M50 160 Q20 200 40 230 Q100 210 160 230 Q180 200 150 160 Z" fill="#EF4444" opacity="0.9" />
-              <path d="M54 165 C54 148 146 148 146 165 C146 195 54 195 54 165 Z" fill="#3B82F6" stroke="#1D4ED8" strokeWidth="2.5" />
-              {/* Hero emblem */}
-              <polygon points="100,166 88,184 112,184" fill="#FBBF24" />
-              <text x="96" y="181" fontSize="11" fontWeight="bold" fill="#B45309">S</text>
-            </g>
-          )}
-          {shirt === 'shirt_space' && (
-            <g>
-              <path d="M54 165 C54 148 146 148 146 165 C146 195 54 195 54 165 Z" fill="#E2E8F0" stroke="#64748B" strokeWidth="3" />
-              <rect x="88" y="168" width="24" height="16" rx="4" fill="#0EA5E9" />
-              <circle cx="95" cy="176" r="2.5" fill="#EF4444" />
-              <circle cx="105" cy="176" r="2.5" fill="#22C55E" />
-            </g>
-          )}
-
-          {/* Yellow backpack strap on front */}
-          {(backpack === 'backpack_yellow' || !backpack) && (
-            <g>
-              <path d="M72 152 Q68 175 70 190" stroke="#CA8A04" strokeWidth="3.5" fill="none" strokeLinecap="round" />
-              <path d="M128 152 Q132 175 130 190" stroke="#CA8A04" strokeWidth="3.5" fill="none" strokeLinecap="round" />
-            </g>
-          )}
+          <EquippedWearable id={shirt} type="shirt" />
 
           {/* Feet */}
           <ellipse cx="65" cy="225" rx="20" ry="12" fill="url(#bunnyFurGrad)" stroke="#CBD5E1" strokeWidth="3.5" />
@@ -340,115 +273,10 @@ export const BunnyCharacter: React.FC<BunnyCharacterProps> = ({
             </>
           )}
 
-          {/* Glasses Accessory */}
-          {glasses === 'glasses_cool' && (
-            <g transform="translate(62, 102)">
-              <rect x="0" y="0" width="32" height="18" rx="4" fill="#0F172A" />
-              <rect x="44" y="0" width="32" height="18" rx="4" fill="#0F172A" />
-              <line x1="32" y1="8" x2="44" y2="8" stroke="#0F172A" strokeWidth="4" />
-              <line x1="5" y1="3" x2="25" y2="15" stroke="#FFFFFF" strokeWidth="2" opacity="0.6" />
-            </g>
-          )}
-          {glasses === 'glasses_star' && (
-            <g transform="translate(58, 98)">
-              <text x="0" y="24" fontSize="28">⭐</text>
-              <text x="46" y="24" fontSize="28">⭐</text>
-              <line x1="28" y1="12" x2="48" y2="12" stroke="#EAB308" strokeWidth="3.5" />
-            </g>
-          )}
-          {glasses === 'glasses_smart' && (
-            <g transform="translate(64, 102)">
-              <circle cx="15" cy="12" r="15" fill="none" stroke="#3B82F6" strokeWidth="3.5" />
-              <circle cx="43" cy="12" r="15" fill="none" stroke="#3B82F6" strokeWidth="3.5" />
-              <line x1="30" y1="12" x2="32" y2="12" stroke="#3B82F6" strokeWidth="3.5" />
-            </g>
-          )}
-          {glasses === 'glasses_heart' && (
-            <g transform="translate(60, 98)">
-              <text x="0" y="24" fontSize="26">💖</text>
-              <text x="46" y="24" fontSize="26">💖</text>
-            </g>
-          )}
-
-          {/* Hat Accessory */}
-          {hat === 'hat_cap' && (
-            <g transform="translate(56, 58)">
-              <path d="M10 24 Q44 -12 78 24 Z" fill="#F97316" stroke="#C2410C" strokeWidth="2" />
-              <path d="M2 24 C12 24 64 22 96 32 C74 27 20 25 2 24 Z" fill="#EA580C" />
-            </g>
-          )}
-          {hat === 'hat_party' && (
-            <g transform="translate(76, 26)">
-              <polygon points="24,0 0,55 48,55" fill="#EC4899" stroke="#BE185D" strokeWidth="2" />
-              <circle cx="24" cy="0" r="7" fill="#FBBF24" />
-              <line x1="6" y1="40" x2="42" y2="40" stroke="#FBBF24" strokeWidth="4" />
-              <line x1="12" y1="25" x2="36" y2="25" stroke="#38BDF8" strokeWidth="4" />
-            </g>
-          )}
-          {hat === 'hat_crown' && (
-            <g transform="translate(68, 44)">
-              <path d="M0 26 L12 4 L32 18 L52 4 L64 26 Z" fill="#FBBF24" stroke="#D97706" strokeWidth="2.5" />
-              <circle cx="12" cy="4" r="3.5" fill="#EF4444" />
-              <circle cx="32" cy="18" r="3.5" fill="#3B82F6" />
-              <circle cx="52" cy="4" r="3.5" fill="#10B981" />
-              <rect x="0" y="26" width="64" height="7" rx="3" fill="#F59E0B" />
-            </g>
-          )}
-          {hat === 'hat_chef' && (
-            <g transform="translate(66, 36)">
-              <path d="M8 36 C-4 20 12 0 34 6 C48 -4 68 10 66 30 C74 36 58 44 56 36 Z" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2.5" />
-              <rect x="14" y="34" width="42" height="12" rx="2" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2.5" />
-            </g>
-          )}
-          {hat === 'hat_pirate' && (
-            <g transform="translate(60, 48)">
-              <path d="M0 30 Q40 -6 80 30 Z" fill="#1E293B" stroke="#0F172A" strokeWidth="2" />
-              <text x="32" y="24" fontSize="14">☠️</text>
-            </g>
-          )}
-          {hat === 'hat_astronaut' && (
-            <g transform="translate(56, 50)">
-              <ellipse cx="44" cy="40" rx="46" ry="42" fill="none" stroke="#38BDF8" strokeWidth="5" opacity="0.8" />
-              <path d="M12 25 Q44 10 76 25" stroke="#FFFFFF" strokeWidth="3" opacity="0.6" fill="none" />
-            </g>
-          )}
-
-          {/* Held Item */}
-          {item === 'item_carrot' && (
-            <g transform="translate(118, 150) rotate(-20)">
-              <polygon points="12,32 24,0 0,0" fill="#F97316" stroke="#C2410C" strokeWidth="1.5" />
-              <line x1="6" y1="10" x2="16" y2="10" stroke="#EA580C" strokeWidth="2" />
-              <line x1="8" y1="20" x2="14" y2="20" stroke="#EA580C" strokeWidth="2" />
-              <path d="M12 0 C12 -12 6 -14 0 -12 C6 -8 10 -4 12 0 Z" fill="#22C55E" />
-              <path d="M12 0 C12 -14 18 -16 22 -12 C16 -8 14 -4 12 0 Z" fill="#16A34A" />
-            </g>
-          )}
-          {item === 'item_balloon' && (
-            <g transform="translate(136, 115)">
-              <ellipse cx="20" cy="20" rx="16" ry="20" fill="#EF4444" />
-              <polygon points="17,40 23,40 20,44" fill="#DC2626" />
-              <path d="M20 44 Q14 55 10 75" stroke="#64748B" strokeWidth="1.5" fill="none" />
-            </g>
-          )}
-          {item === 'item_flower' && (
-            <g transform="translate(125, 140)">
-              <text x="0" y="24" fontSize="28">🌻</text>
-            </g>
-          )}
-          {item === 'item_magic_wand' && (
-            <g transform="translate(126, 135) rotate(35)">
-              <rect x="0" y="10" width="7" height="38" rx="3.5" fill="#A855F7" stroke="#7E22CE" strokeWidth="1.5" />
-              <text x="-6" y="10" fontSize="18">⭐</text>
-            </g>
-          )}
-
-          {/* Badge pinned on chest */}
-          {badge && (
-            <g transform="translate(70, 172)">
-              <circle cx="10" cy="10" r="9" fill="#FEF08A" stroke="#CA8A04" strokeWidth="2" />
-              <text x="4" y="14" fontSize="10">⭐</text>
-            </g>
-          )}
+          <EquippedWearable id={glasses} type="glasses" />
+          <EquippedWearable id={hat} type="hat" />
+          <EquippedWearable id={item} type="item" />
+          <EquippedWearable id={badge} type="badge" />
         </svg>
       </div>
     </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Lightbulb, Volume2, X } from 'lucide-react';
 import { Question } from '../types/math';
 import { TenFrame } from './TenFrame';
-import { BunnyCharacter } from './BunnyCharacter';
+import { HeroCharacter } from './HeroCharacter';
 import { sound } from '../utils/sound';
 
 interface HintModalProps {
@@ -55,11 +55,11 @@ export const HintModal: React.FC<HintModalProps> = ({
             <Lightbulb className="w-6 h-6 animate-pulse" />
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-amber-900">
-            Thỏ Bông Mách Nhỏ Nè!
+            Mách Nhỏ Cho Con Nè!
           </h3>
         </div>
 
-        <BunnyCharacter
+        <HeroCharacter
           mood="thinking"
           size="sm"
           showSpeechBubble={false}

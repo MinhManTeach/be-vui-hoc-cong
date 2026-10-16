@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Play, RotateCcw, Map, Sparkles, Star, Flame, Gift } from 'lucide-react';
-import { BunnyCharacter } from './BunnyCharacter';
 import { CompanionRenderer } from './plush/CompanionRenderer';
 import { sound } from '../utils/sound';
 import { BunnyAccessory } from '../types/math';
@@ -105,21 +104,7 @@ export const VictoryScreen: React.FC<VictoryScreenProps> = ({
 
         {/* Mascot & Companion */}
         <div className="my-2 flex items-end justify-center gap-2">
-          <BunnyCharacter
-            mood="celebrate"
-            size="md"
-            showSpeechBubble={false}
-            hat={hat}
-            glasses={glasses}
-            shirt={shirt}
-            backpack={backpack}
-            item={item}
-          />
-          {companionId && (
-            <div className="scale-95 animate-bounce-subtle -translate-x-2">
-              <CompanionRenderer companionId={companionId} size={70} />
-            </div>
-          )}
+          <CompanionRenderer companionId={companionId ?? 'bunny'} size={140} reaction="CELEBRATE" canSpeakOnClick={false} showBadge={false} accessories={{hat,glasses,shirt,backpack,item}} />
         </div>
 
         {/* 3 Stars Drop In */}
