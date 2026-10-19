@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bé Vui Học Cộng</string>
+    <string name="title_activity_main">Bé Vui Học Cộng</string>
+    <string name="package_name">vn.lopso.bevuihoccong</string>
+    <string name="custom_url_scheme">vn.lopso.bevuihoccong</string>
+</resources>
