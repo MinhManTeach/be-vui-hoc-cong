@@ -210,7 +210,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
 
           {/* Visual representations */}
           {question.type === 'count' && (
-            <VisualCounters count={question.operandA} theme={question.itemTheme} size="md" />
+            <VisualCounters key={question.id} count={question.operandA} theme={question.itemTheme} size="md" />
           )}
 
           {(question.type === 'add_basic' || question.type === 'merge') && (
