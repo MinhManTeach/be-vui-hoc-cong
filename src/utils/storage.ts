@@ -317,6 +317,8 @@ export function commitRetentionUpdate(progress: UserProgress, update: (current: 
     if (saved !== null) {
       let parsed: Record<string, unknown> | null = null;
       try { parsed = parseSave(saved); } catch { /* recovery write still preserves corrupt data */ }
+      // App counts play minutes in the background; adopt them so they never look like a conflict.
+      if (parsed && !isFutureSave(parsed)) progress = { ...progress, playTime: migrateProgress(parsed).playTime };
       if (parsed && (isFutureSave(parsed) || JSON.stringify(migrateProgress(parsed)) !== JSON.stringify(migrateProgress(progress)))) {
         throw new Error('Retention save conflict; reload the latest progress before retrying');
       }
