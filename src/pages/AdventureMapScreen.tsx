@@ -4,7 +4,7 @@ import './dailyAdventure.css';
 import { deviceClock } from '../domain/retention/clock';
 import { Lock, Star, Sparkles, Volume2, VolumeX, Play, Compass, Award } from 'lucide-react';
 import { UserProgress, WorldId } from '../types/math';
-import { ALL_WORLDS, getPlayerLevelInfo } from '../utils/storage';
+import { ALL_WORLDS, getCurrentWorldId, getPlayerLevelInfo } from '../utils/storage';
 import { sound } from '../utils/sound';
 import { HeroCharacter } from '../components/HeroCharacter';
 import { CompanionRenderer } from '../components/plush/CompanionRenderer';
@@ -64,10 +64,7 @@ export const AdventureMapScreen: React.FC<AdventureMapScreenProps> = ({
   }, []);
 
   // Determine current active world
-  const currentActiveWorldId =
-    ALL_WORLDS.find((w) => !progress.unlockedWorlds.includes(w.id))?.id ||
-    progress.unlockedWorlds[progress.unlockedWorlds.length - 1] ||
-    'world_1_counting';
+  const currentActiveWorldId = getCurrentWorldId(progress);
 
   const handleWorldClick = (worldId: WorldId, isUnlocked: boolean, minStars: number) => {
     sound.playTap();
