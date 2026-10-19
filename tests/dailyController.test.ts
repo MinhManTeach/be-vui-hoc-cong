@@ -6,8 +6,10 @@ import { WORLD_ORDER } from "../src/domain/retention/types";
 import {
   INITIAL_PROGRESS,
   loadProgress,
+  saveProgress,
   STORAGE_KEY,
 } from "../src/utils/storage";
+import { addPlayedMinute } from "../src/domain/playtime/playtime";
 import type { UserProgress } from "../src/types/math";
 
 const stored = new Map<string, string>();
@@ -273,3 +275,12 @@ for (const world of WORLD_ORDER)
       if (q.type === "make_10") assert.equal(q.operandA + q.answer, 10);
     }
   });
+
+test('A play minute counted by App mid-adventure is not a save conflict and is kept', () => {
+  const c = start();
+  c.open("learn");
+  const saved = JSON.parse(stored.get(STORAGE_KEY)!);
+  assert.ok(saveProgress(addPlayedMinute(saved, clock.day())));
+  solve(c);
+  assert.equal(JSON.parse(stored.get(STORAGE_KEY)!).playTime.minutes, 1);
+});

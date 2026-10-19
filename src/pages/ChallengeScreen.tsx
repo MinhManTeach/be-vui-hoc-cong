@@ -121,7 +121,8 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({
       });
       setBunnySpeech(gentle);
 
-      recordAnswerResult(progress, question.worldId, false);
+      const result = recordAnswerResult(progress, question.worldId, false);
+      onUpdateProgress(result.updatedProgress);
 
       setTimeout(() => {
         nextChallengeQuestion();

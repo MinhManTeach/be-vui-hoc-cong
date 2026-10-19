@@ -18,11 +18,12 @@ interface CarrotRound {
   choices: number[];
 }
 
-function generateCarrotRound(): CarrotRound {
+export function generateCarrotRound(): CarrotRound {
   const a = Math.floor(Math.random() * 8) + 2; // 2 to 9
   const b = Math.floor(Math.random() * 8) + 2; // 2 to 9
   const answer = a + b;
   const offsets = [-1, 1, -2, 2];
+  offsets.sort(() => Math.random() - 0.5);
   const distractors = offsets
     .map((off) => answer + off)
     .filter((n) => n > 0 && n !== answer)
@@ -43,6 +44,7 @@ export const MiniGameRabbitCarrot: React.FC<MiniGameRabbitCarrotProps> = ({
   const [eatenCarrots, setEatenCarrots] = useState<number>(0);
   const [showHearts, setShowHearts] = useState<boolean>(false);
   const speechCancelRef = useRef<(() => void) | null>(null);
+  const locked = useRef(false);
 
   // Auto-read question on new round
   useEffect(() => {
@@ -63,9 +65,11 @@ export const MiniGameRabbitCarrot: React.FC<MiniGameRabbitCarrotProps> = ({
   };
 
   const handleFeedCarrot = (chosenNumber: number) => {
+    if (locked.current) return;
     sound.playTap();
 
     if (chosenNumber === round.answer) {
+      locked.current = true;
       sound.playChomp();
       sound.playSuccess();
       setBunnyMood('eating');
@@ -78,6 +82,7 @@ export const MiniGameRabbitCarrot: React.FC<MiniGameRabbitCarrotProps> = ({
       setEatenCarrots((prev) => prev + 1);
 
       setTimeout(() => {
+        locked.current = false;
         setBunnyMood('happy');
         setShowHearts(false);
         setRound(generateCarrotRound());

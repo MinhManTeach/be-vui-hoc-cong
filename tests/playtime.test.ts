@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {INITIAL_PROGRESS, migrateProgress} from '../src/utils/storage';
 import {addPlayedMinute, grantExtraMinutes, isTimeUp, normalizePlayTime, setDailyLimit, today} from '../src/domain/playtime/playtime';
@@ -32,4 +33,12 @@ test('a new day starts from zero and keeps the limit', () => {
 test('saved play time is validated', () => {
   assert.deepEqual(normalizePlayTime({day: 'x', minutes: -3, limitMinutes: 17}), {day: '', minutes: 0, limitMinutes: 0, extraMinutes: 0});
   assert.equal(migrateProgress({playTime: {day: D1, minutes: 12, limitMinutes: 30, extraMinutes: 0}}).playTime!.limitMinutes, 30);
+});
+
+test('play-minute timer is created once, so changing screens does not restart the minute', () => {
+  const app = readFileSync('src/App.tsx', 'utf8');
+  const effect = app.match(/useEffect\(\(\) => \{\s*const timer = window\.setInterval\([\s\S]*?addPlayedMinute[\s\S]*?\}, (\[[^\]]*\])\);/);
+  assert(effect, 'play-minute effect not found');
+  assert.equal(effect[1], '[]');
+  assert.match(effect[0], /currentScreenRef\.current === 'splash' \|\| currentScreenRef\.current === 'parents'/);
 });

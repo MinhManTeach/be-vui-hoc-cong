@@ -41,6 +41,7 @@ export const MiniGameTrain10: React.FC<MiniGameTrain10Props> = ({
   const [isDriving, setIsDriving] = useState<boolean>(false);
   const [selectedWagon, setSelectedWagon] = useState<number | null>(null);
   const speechCancelRef = useRef<(() => void) | null>(null);
+  const locked = useRef(false);
 
   // Auto-read question on new round
   useEffect(() => {
@@ -62,9 +63,11 @@ export const MiniGameTrain10: React.FC<MiniGameTrain10Props> = ({
   };
 
   const handleSelectWagon = (chosenVal: number) => {
+    if (locked.current) return;
     sound.playTap();
 
     if (chosenVal === round.answer) {
+      locked.current = true;
       setSelectedWagon(chosenVal);
       sound.playTrainToot();
       sound.playSuccess();
@@ -76,6 +79,7 @@ export const MiniGameTrain10: React.FC<MiniGameTrain10Props> = ({
       setTrainRuns((prev) => prev + 1);
 
       setTimeout(() => {
+        locked.current = false;
         setIsDriving(false);
         setSelectedWagon(null);
         setRound(generateTrainRound());

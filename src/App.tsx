@@ -118,15 +118,17 @@ export default function App() {
   }, [progress.soundEnabled, progress.soundEffectsEnabled, progress.speechEnabled]);
 
   // Count real play minutes (screen visible, past the splash) for the parent's daily limit.
+  // One timer for the whole session, so changing screens does not restart the minute.
+  const currentScreenRef = useRef(currentScreen);
+  currentScreenRef.current = currentScreen;
   useEffect(() => {
-    if (currentScreen === 'splash' || currentScreen === 'parents') return;
     const timer = window.setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || currentScreenRef.current === 'splash' || currentScreenRef.current === 'parents') return;
       const next = addPlayedMinute(progressRef.current, deviceClock.day());
       if (saveProgress(next)) { progressRef.current = next; setProgress(next); }
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [currentScreen]);
+  }, []);
   const timeUp = currentScreen !== 'splash' && currentScreen !== 'parents' && isTimeUp(progress, deviceClock.day());
 
   const handleUpdateProgress = (updated: UserProgress) => {
@@ -174,6 +176,11 @@ export default function App() {
     sound.cancelSpeech();
     setSelectedLevelNumber(levelNumber);
 
+    // Levels 3 and 6 are treasure chests: go back to the trail so the child opens the chest there.
+    if (levelNumber === 3 || levelNumber === 6) {
+      setCurrentScreen('world_trail');
+      return;
+    }
     // If World 4 Boss Level
     if (selectedWorldId === 'world_4_make_10' && levelNumber === 8) {
       setCurrentScreen('boss_gate_10');
@@ -488,6 +495,7 @@ export default function App() {
           onBack={() => setCurrentScreen('map')}
           onSelectDirectWorld={(wId) => {
             setSelectedWorldId(wId);
+            setSelectedLevelNumber(1);
             setCurrentScreen('level_play');
           }}
         />
