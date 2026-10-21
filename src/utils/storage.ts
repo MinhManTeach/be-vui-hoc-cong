@@ -197,6 +197,20 @@ export const ALL_WORLDS: WorldConfig[] = [
 ];
 
 // Keep the v2 key/root version; retention is independently versioned.
+/**
+ * The world the child is learning right now, where the hero stands on the map:
+ * the first unlocked world that is not finished yet, or the last unlocked one
+ * when every unlocked world is done. Locked worlds are never chosen.
+ */
+export function getCurrentWorldId(progress: Pick<UserProgress, 'unlockedWorlds' | 'worldLevelsProgress'>): WorldId {
+  const unlocked = ALL_WORLDS.filter(w => progress.unlockedWorlds.includes(w.id));
+  const isFinished = (world: WorldConfig) => {
+    const data = progress.worldLevelsProgress[world.id];
+    return !!data && (data.bossCompleted === true || data.completedLevels.length >= world.totalLevels);
+  };
+  return (unlocked.find(w => !isFinished(w)) ?? unlocked[unlocked.length - 1])?.id ?? 'world_1_counting';
+}
+
 export function isFutureSave(raw: unknown): boolean {
   const data = object(raw);
   const retention = object(data.retention);
