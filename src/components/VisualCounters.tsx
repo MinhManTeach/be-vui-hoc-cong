@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ItemTheme } from '../types/math';
 import { sound } from '../utils/sound';
 import { ItemVisual } from './ItemVisual';
+import { toggleTap } from '../utils/tapCount';
 
 interface VisualCountersProps {
   count: number;
@@ -33,12 +34,7 @@ export const VisualCounters: React.FC<VisualCountersProps> = ({
     if (!interactiveTapCount) return;
 
     sound.playPop();
-    let newIndices: number[];
-    if (tappedIndices.includes(index)) {
-      newIndices = tappedIndices.filter((i) => i !== index);
-    } else {
-      newIndices = [...tappedIndices, index];
-    }
+    const newIndices = toggleTap(tappedIndices, index, count);
     setTappedIndices(newIndices);
     if (onCountChange) {
       onCountChange(newIndices.length);

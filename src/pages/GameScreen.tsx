@@ -479,6 +479,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {worldId === 'world_1_counting' && (
             <div className="my-2 p-5 bg-white/95 rounded-3xl border-4 border-emerald-400 shadow-xl w-full flex justify-center">
               <VisualCounters
+                key={question.id}
                 count={question.operandA}
                 theme={question.itemTheme}
                 interactiveTapCount={true}
@@ -496,7 +497,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     <span className="text-xs font-bold text-amber-800 mb-1">
                       Nhóm 1 ({question.operandA})
                     </span>
-                    <VisualCounters count={question.operandA} theme={question.itemTheme} size="md" />
+                    <VisualCounters key={`${question.id}:a`} count={question.operandA} theme={question.itemTheme} size="md" />
                   </div>
 
                   <span className="text-3xl font-black text-amber-600">+</span>
@@ -505,7 +506,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     <span className="text-xs font-bold text-amber-800 mb-1">
                       Nhóm 2 ({question.operandB})
                     </span>
-                    <VisualCounters count={question.operandB || 1} theme={question.itemTheme} size="md" />
+                    <VisualCounters key={`${question.id}:b`} count={question.operandB || 1} theme={question.itemTheme} size="md" />
                   </div>
                 </div>
               ) : (
@@ -515,6 +516,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     ĐÃ GỘP TẤT CẢ VÀO MỘT NHÓM
                   </span>
                   <VisualCounters
+                    key={`${question.id}:merged`}
                     count={(question.operandA || 0) + (question.operandB || 0)}
                     theme={question.itemTheme}
                     interactiveTapCount={true}
@@ -545,7 +547,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               <div className="flex flex-col items-center p-3 bg-rose-50 rounded-2xl border-2 border-rose-300 w-36">
                 <span className="text-2xl mb-1">🧺</span>
                 <span className="text-xs font-black text-slate-700">Giỏ 1: {question.splitA}</span>
-                <VisualCounters count={question.splitA || 1} theme={question.itemTheme} size="sm" />
+                <VisualCounters key={`${question.id}:a`} count={question.splitA || 1} theme={question.itemTheme} size="sm" />
               </div>
 
               <span className="text-2xl font-black text-rose-500">+</span>
